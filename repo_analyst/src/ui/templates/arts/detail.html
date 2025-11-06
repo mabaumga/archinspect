@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}{{ art.name }} - Repo-Analyst{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'art-list' %}">ARTs</a></li>
+        <li class="breadcrumb-item active">{{ art.name }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-diagram-3"></i> {{ art.name }}</h1>
+    <a href="{% url 'art-update' art.pk %}" class="btn btn-primary">Bearbeiten</a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">ART-Informationen</h5>
+    </div>
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">Name:</dt>
+            <dd class="col-sm-9">{{ art.name }}</dd>
+            <dt class="col-sm-3">Business Owner IT:</dt>
+            <dd class="col-sm-9">{{ art.business_owner_it }}</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-app"></i> Anwendungen</h5>
+    </div>
+    <div class="card-body">
+        {% if applications %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Alphabet ID</th>
+                        <th>Repositories</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for app in applications %}
+                    <tr>
+                        <td><a href="{% url 'application-detail' app.pk %}">{{ app.name }}</a></td>
+                        <td>{{ app.alphabet_id }}</td>
+                        <td>{{ app.repositories.count }}</td>
+                        <td>
+                            <a href="{% url 'application-detail' app.pk %}" class="btn btn-sm btn-outline-primary">Details</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">Keine Anwendungen zugeordnet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

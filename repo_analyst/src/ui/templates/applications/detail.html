@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}{{ application.name }} - Repo-Analyst{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'application-list' %}">Anwendungen</a></li>
+        <li class="breadcrumb-item active">{{ application.name }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-app"></i> {{ application.name }}</h1>
+    <a href="{% url 'application-update' application.pk %}" class="btn btn-primary">Bearbeiten</a>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Anwendungs-Informationen</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-4">Name:</dt>
+                    <dd class="col-sm-8">{{ application.name }}</dd>
+                    <dt class="col-sm-4">Alphabet ID:</dt>
+                    <dd class="col-sm-8">{{ application.alphabet_id }}</dd>
+                    <dt class="col-sm-4">Beschreibung:</dt>
+                    <dd class="col-sm-8">{{ application.description|default:"-" }}</dd>
+                    <dt class="col-sm-4">ART:</dt>
+                    <dd class="col-sm-8">
+                        {% if application.art %}
+                            <a href="{% url 'art-detail' application.art.pk %}">{{ application.art.name }}</a>
+                        {% else %}
+                            <span class="text-muted">Nicht zugeordnet</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-folder"></i> Repositories</h5>
+    </div>
+    <div class="card-body">
+        {% if repositories %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Aktualisiert</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for repo in repositories %}
+                    <tr>
+                        <td><a href="{% url 'repository-detail' repo.pk %}">{{ repo.name }}</a></td>
+                        <td>
+                            <span class="badge bg-{% if repo.is_active %}success{% else %}secondary{% endif %}">
+                                {% if repo.is_active %}Aktiv{% else %}Inaktiv{% endif %}
+                            </span>
+                        </td>
+                        <td>{{ repo.updated_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            <a href="{% url 'repository-detail' repo.pk %}" class="btn btn-sm btn-outline-primary">Details</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">Keine Repositories zugeordnet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

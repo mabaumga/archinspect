@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% load repo_filters %}
+
+{% block title %}{{ repository.name }} - Repo-Analyst{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'repository-list' %}">Repositories</a></li>
+        <li class="breadcrumb-item active">{{ repository.name }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-folder"></i> {{ repository.name }}</h1>
+    <div class="btn-group">
+        <a href="{% url 'repository-clone' repository.pk %}"
+           class="btn btn-{% if repository.local_path %}secondary{% else %}primary{% endif %}"
+           title="{% if repository.local_path %}Repository aktualisieren ({{ repository.local_path }}){% else %}Repository von GitLab klonen{% endif %}">
+            <i class="bi bi-{% if repository.local_path %}arrow-repeat{% else %}cloud-download{% endif %}"></i>
+            {% if repository.local_path %}Aktualisieren{% else %}Klonen{% endif %}
+        </a>
+        <a href="{% url 'repository-toggle-active' repository.pk %}" class="btn btn-{% if repository.is_active %}warning{% else %}success{% endif %}">
+            {% if repository.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}
+        </a>
+    </div>
+</div>
+
+<!-- Repository Info -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Repository-Informationen</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-3">Name:</dt>
+                    <dd class="col-sm-9">{{ repository.name }}</dd>
+
+                    <dt class="col-sm-3">Namespace:</dt>
+                    <dd class="col-sm-9">{{ repository.namespace_path }}</dd>
+
+                    <dt class="col-sm-3">URL:</dt>
+                    <dd class="col-sm-9"><a href="{{ repository.url }}" target="_blank">{{ repository.url }}</a></dd>
+
+                    <dt class="col-sm-3">Beschreibung:</dt>
+                    <dd class="col-sm-9">{{ repository.description|default:"-" }}</dd>
+
+                    <dt class="col-sm-3">Tech Stack:</dt>
+                    <dd class="col-sm-9">{{ repository.tech_stack|default:"-" }}</dd>
+
+                    <dt class="col-sm-3">Status:</dt>
+                    <dd class="col-sm-9">
+                        <span class="badge bg-{% if repository.is_active %}success{% else %}secondary{% endif %}">
+                            {% if repository.is_active %}Aktiv{% else %}Inaktiv{% endif %}
+                        </span>
+                    </dd>
+
+                    <dt class="col-sm-3">Aktualisiert:</dt>
+                    <dd class="col-sm-9">{{ repository.updated_at|date:"d.m.Y H:i" }}</dd>
+
+                    <dt class="col-sm-3">Lokaler Pfad:</dt>
+                    <dd class="col-sm-9">
+                        {% if repository.local_path %}
+                            <code class="text-success">{{ repository.local_path }}</code>
+                            <span class="badge bg-success ms-2">Geklont</span>
+                        {% else %}
+                            <span class="text-muted">Noch nicht geklont</span>
+                            <a href="{% url 'repository-clone' repository.pk %}" class="btn btn-sm btn-outline-primary ms-2">
+                                <i class="bi bi-cloud-download"></i> Jetzt klonen
+                            </a>
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Zuordnung</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-5">Anwendung:</dt>
+                    <dd class="col-sm-7">
+                        {% if repository.application %}
+                            <a href="{% url 'application-detail' repository.application.pk %}">
+                                {{ repository.application.name }}
+                            </a>
+                        {% else %}
+                            <span class="text-muted">Nicht zugeordnet</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-5">ART:</dt>
+                    <dd class="col-sm-7">
+                        {% if repository.application.art %}
+                            <a href="{% url 'art-detail' repository.application.art.pk %}">
+                                {{ repository.application.art.name }}
+                            </a>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+                <a href="{% url 'repository-assign' repository.pk %}" class="btn btn-sm btn-primary w-100">
+                    Zuordnung ändern
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Execute Prompt -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-play-circle"></i> Prompt ausführen</h5>
+    </div>
+    <div class="card-body">
+        <form method="post" action="{% url 'repository-execute-prompt' repository.pk %}">
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    {{ execute_form.prompt }}
+                </div>
+                <div class="col-md-4">
+                    {{ execute_form.ki_provider }}
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-play-fill"></i> Ausführen
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Latest Results -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-graph-up"></i> Letzte Ergebnisse pro Prompt</h5>
+    </div>
+    <div class="card-body">
+        {% if latest_runs %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Prompt</th>
+                        <th>Score</th>
+                        <th>Zeitpunkt</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prompt in all_prompts %}
+                    {% with run=latest_runs|get_item:prompt.id %}
+                    <tr>
+                        <td>{{ prompt.title }}</td>
+                        <td>
+                            {% if run %}
+                                {% if run.score_pct %}
+                                <span class="badge bg-{% if run.score_pct >= 80 %}success{% elif run.score_pct >= 60 %}warning{% else %}danger{% endif %}">
+                                    {{ run.score_pct }}%
+                                </span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">Nicht ausgeführt</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if run %}
+                                {{ run.created_at|date:"d.m.Y H:i" }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if run %}
+                                <a href="{% url 'promptrun-detail' run.pk %}" class="btn btn-sm btn-outline-primary">
+                                    Details
+                                </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">Noch keine Prompt-Ausführungen vorhanden.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- History -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-clock-history"></i> Historie</h5>
+    </div>
+    <div class="card-body">
+        {% if prompt_history %}
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Prompt</th>
+                        <th>Provider</th>
+                        <th>Score</th>
+                        <th>Zeitpunkt</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for run in prompt_history %}
+                    <tr>
+                        <td>{{ run.prompt.title }}</td>
+                        <td>{{ run.ki_provider.name }}</td>
+                        <td>
+                            {% if run.score_pct %}
+                            <span class="badge bg-{% if run.score_pct >= 80 %}success{% elif run.score_pct >= 60 %}warning{% else %}danger{% endif %}">
+                                {{ run.score_pct }}%
+                            </span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ run.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            <a href="{% url 'promptrun-detail' run.pk %}" class="btn btn-sm btn-outline-primary">
+                                Details
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">Keine Historie vorhanden.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

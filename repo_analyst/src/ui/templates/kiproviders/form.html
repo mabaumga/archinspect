@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}{% if object %}Bearbeiten{% else %}Erstellen{% endif %} - KI Provider{% endblock %}
+
+{% block content %}
+<h1>{% if object %}KI Provider bearbeiten{% else %}Neuen KI Provider erstellen{% endif %}</h1>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <button type="submit" class="btn btn-primary">Speichern</button>
+            <a href="{% url 'kiprovider-list' %}" class="btn btn-secondary">Abbrechen</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

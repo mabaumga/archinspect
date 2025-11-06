@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Prompt Run - Repo-Analyst{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'repository-detail' prompt_run.repository.pk %}">{{ prompt_run.repository.name }}</a></li>
+        <li class="breadcrumb-item active">Prompt Run</li>
+    </ol>
+</nav>
+
+<h1><i class="bi bi-play-circle"></i> Prompt Run Details</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Allgemeine Informationen</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-4">Repository:</dt>
+                    <dd class="col-sm-8">
+                        <a href="{% url 'repository-detail' prompt_run.repository.pk %}">
+                            {{ prompt_run.repository.name }}
+                        </a>
+                    </dd>
+                    <dt class="col-sm-4">Prompt:</dt>
+                    <dd class="col-sm-8">
+                        <a href="{% url 'prompt-detail' prompt_run.prompt.pk %}">
+                            {{ prompt_run.prompt.title }}
+                        </a>
+                    </dd>
+                    <dt class="col-sm-4">KI Provider:</dt>
+                    <dd class="col-sm-8">{{ prompt_run.ki_provider.name }}</dd>
+                    <dt class="col-sm-4">Zeitpunkt:</dt>
+                    <dd class="col-sm-8">{{ prompt_run.created_at|date:"d.m.Y H:i:s" }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Ergebnis</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-4">Score:</dt>
+                    <dd class="col-sm-8">
+                        {% if prompt_run.score_pct %}
+                        <span class="badge bg-{% if prompt_run.score_pct >= 80 %}success{% elif prompt_run.score_pct >= 60 %}warning{% else %}danger{% endif %} fs-5">
+                            {{ prompt_run.score_pct }}%
+                        </span>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </dd>
+                    <dt class="col-sm-4">Zusammenfassung:</dt>
+                    <dd class="col-sm-8">{{ prompt_run.summary|default:"-" }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Verbesserungsvorschläge</h5>
+    </div>
+    <div class="card-body">
+        {% if prompt_run.improvement_suggestions.suggestions %}
+        <ul class="list-group">
+            {% for suggestion in prompt_run.improvement_suggestions.suggestions %}
+            <li class="list-group-item">
+                <h6>{{ suggestion.title }}</h6>
+                <p class="mb-1">{{ suggestion.description }}</p>
+                <small class="text-muted">Aufwand: {{ suggestion.effort_hours }} Stunden</small>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted">Keine Verbesserungsvorschläge vorhanden.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% if prompt_run.endpoints.rest_endpoints %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Gefundene Endpoints</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Methode</th>
+                        <th>Pfad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for endpoint in prompt_run.endpoints.rest_endpoints %}
+                    <tr>
+                        <td><span class="badge bg-primary">{{ endpoint.method }}</span></td>
+                        <td><code>{{ endpoint.path }}</code></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Vollständige Antwort (JSON)</h5>
+    </div>
+    <div class="card-body">
+        <pre class="bg-light p-3 rounded"><code>{{ prompt_run.response_json|safe }}</code></pre>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a href="{% url 'repository-detail' prompt_run.repository.pk %}" class="btn btn-secondary">Zurück zum Repository</a>
+</div>
+{% endblock %}

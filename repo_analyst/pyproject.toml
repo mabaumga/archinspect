@@ -1,0 +1,50 @@
+[tool.poetry]
+name = "repo-analyst"
+version = "0.1.0"
+description = "Repository analysis tool with hexagonal architecture"
+authors = ["R+V Team"]
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+django = "^5.0"
+djangorestframework = "^3.14"
+django-environ = "^0.11"
+django-crispy-forms = "^2.1"
+crispy-bootstrap5 = "^2.0"
+psycopg2-binary = "^2.9"
+python-dateutil = "^2.8"
+requests = "^2.31"
+python-json-logger = "^2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+pytest-django = "^4.7"
+pytest-bdd = "^7.0"
+pytest-cov = "^4.1"
+factory-boy = "^3.3"
+ruff = "^0.1"
+black = "^23.12"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py", "*_test.py", "test*.py"]
+python_classes = ["Test*", "*Tests"]
+python_functions = ["test_*"]
+testpaths = ["src/tests"]
+addopts = "--reuse-db --strict-markers"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.black]
+line-length = 120
+target-version = ["py311"]

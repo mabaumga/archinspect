@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Repo-Analyst{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Dashboard</h1>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-folder"></i> Repositories
+                </h5>
+                <h2 class="card-text">{{ total_repos }}</h2>
+                <small>{{ active_repos }} aktiv</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-app"></i> Anwendungen
+                </h5>
+                <h2 class="card-text">{{ total_apps }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-diagram-3"></i> ARTs
+                </h5>
+                <h2 class="card-text">{{ total_arts }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-chat-dots"></i> Prompts
+                </h5>
+                <h2 class="card-text">{{ total_prompts }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Prompt Runs -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-clock-history"></i> Letzte Prompt-Ausführungen</h5>
+    </div>
+    <div class="card-body">
+        {% if recent_runs %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Repository</th>
+                        <th>Prompt</th>
+                        <th>Score</th>
+                        <th>Zeitpunkt</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for run in recent_runs %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'repository-detail' run.repository.pk %}">
+                                {{ run.repository.name }}
+                            </a>
+                        </td>
+                        <td>{{ run.prompt.title }}</td>
+                        <td>
+                            {% if run.score_pct %}
+                                <span class="badge bg-{% if run.score_pct >= 80 %}success{% elif run.score_pct >= 60 %}warning{% else %}danger{% endif %}">
+                                    {{ run.score_pct }}%
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ run.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            <a href="{% url 'promptrun-detail' run.pk %}" class="btn btn-sm btn-outline-primary">
+                                Details
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">Noch keine Prompt-Ausführungen vorhanden.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning"></i> Schnellzugriff</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2 d-md-block">
+                    <a href="{% url 'repository-list' %}" class="btn btn-primary">
+                        <i class="bi bi-folder"></i> Repositories verwalten
+                    </a>
+                    <a href="{% url 'application-create' %}" class="btn btn-success">
+                        <i class="bi bi-plus-circle"></i> Anwendung erstellen
+                    </a>
+                    <a href="{% url 'prompt-create' %}" class="btn btn-warning">
+                        <i class="bi bi-plus-circle"></i> Prompt erstellen
+                    </a>
+                    <a href="/api/v1/" class="btn btn-info">
+                        <i class="bi bi-code-square"></i> API Explorer
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

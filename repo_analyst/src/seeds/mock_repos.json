@@ -1,0 +1,32 @@
+[
+  {
+    "external_id": "1778",
+    "name": "ArvenDatenKurier",
+    "url": "https://gitlab.ruv.de/art-operations/krake/arvendatenkurier",
+    "description": "Data courier system",
+    "tech_stack": "python,django",
+    "namespace_path": "art-operations/krake",
+    "visibility": "internal",
+    "is_active": true
+  },
+  {
+    "external_id": "1269",
+    "name": "bka-bff",
+    "url": "https://gitlab.ruv.de/art-glu/bkv/bka-bff",
+    "description": "Betriebskrankenversicherung Abschlussstrecke",
+    "tech_stack": "java,spring",
+    "namespace_path": "art-glu/bkv",
+    "visibility": "internal",
+    "is_active": true
+  },
+  {
+    "external_id": "7030",
+    "name": "zahlungen-service",
+    "url": "https://gitlab.ruv.de/art-makler-und-portale/dkk/dkk-zahlungen/zahlungen-service",
+    "description": "Payment service",
+    "tech_stack": "java,spring-boot",
+    "namespace_path": "art-makler-und-portale/dkk/dkk-zahlungen",
+    "visibility": "internal",
+    "is_active": true
+  }
+]

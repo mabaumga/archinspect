@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}{{ prompt.title }} - Repo-Analyst{% endblock %}
+
+{% block content %}
+<h1><i class="bi bi-chat-dots"></i> {{ prompt.title }}</h1>
+
+<div class="card">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-2">Titel:</dt>
+            <dd class="col-sm-10">{{ prompt.title }}</dd>
+            <dt class="col-sm-2">Kategorie:</dt>
+            <dd class="col-sm-10"><span class="badge bg-info">{{ prompt.get_category_display }}</span></dd>
+            <dt class="col-sm-2">Beschreibung:</dt>
+            <dd class="col-sm-10">{{ prompt.short_description }}</dd>
+            <dt class="col-sm-2">Prompt Text:</dt>
+            <dd class="col-sm-10"><pre class="bg-light p-3 rounded">{{ prompt.prompt_text }}</pre></dd>
+        </dl>
+        <a href="{% url 'prompt-update' prompt.pk %}" class="btn btn-primary">Bearbeiten</a>
+        <a href="{% url 'prompt-list' %}" class="btn btn-secondary">Zurück</a>
+    </div>
+</div>
+{% endblock %}

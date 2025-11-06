@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Zuordnung ändern - {{ repository.name }}{% endblock %}
+
+{% block content %}
+<h1>Zuordnung ändern</h1>
+<p class="lead">Repository: <strong>{{ repository.name }}</strong></p>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <button type="submit" class="btn btn-primary">Speichern</button>
+            <a href="{% url 'repository-detail' repository.pk %}" class="btn btn-secondary">Abbrechen</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

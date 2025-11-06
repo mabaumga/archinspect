@@ -1,0 +1,271 @@
+Master‑Prompt: Erzeuge eine Django‑Anwendung „Repo‑Analyst“ (Hexagonale Architektur, Bootstrap, BDD)
+
+Rolle: Du bist ein sorgfältiger Senior‑Software‑Engineer. Liefere sauberen, produktionsreifen Code, klare Struktur und kurze, präzise Erklärungen. Nichts auslassen.
+
+Ziel: Implementiere eine Web‑Anwendung „Repo‑Analyst“, die Repositories aus einer on‑prem GitLab‑Instanz (oder Mock) einliest, in einer DB persistiert, sie Anwendungen (Application) und ARTs zuordnet, Prompts und KI‑Provider verwaltet, Quellcode eines Repositories lokal spiegelt, einen zusammengefassten Markdown‑Korpus erzeugt und KI‑Analysen (JSON) pro Repository/Prompt speichert und anzeigt.
+
+Rahmenbedingungen
+
+Framework: Django (Python 3.11+)
+
+UI: Bootstrap 5 (gerne via django-crispy-forms + crispy-bootstrap5)
+
+API: Django REST Framework (DRF), Versionierung /api/v1/..., REST Maturity Level 2
+
+Architektur: Hexagonale Architektur (Ports & Adapters)
+
+Tests: Behavior‑Driven Development (pytest + pytest-bdd); zusätzlich Unit‑ und Integrationstests (pytest)
+
+Tasks: Keine Celery/Redis im ersten Schritt. Alle Operationen (Import, Clone, Markdown-Korpus, Prompt-Call) laufen synchron im Request oder als Management Commands (für größere Läufe). Später kann Celery optional ergänzt werden.
+
+Konfiguration: .env (Umgebungsvariablen), django-environ
+
+Logging: strukturiert (JSON) mit Request‑ID/Correlation‑ID, konfigurierbar über ENV
+
+Zeit/Locale: Zeitzone Europe/Berlin, Sprache de
+
+Security: Kein Login/keine Auth im ersten Schritt (Intranet). CSRF bleibt für Form-POSTs aktiv. Keine Secrets im Code; KI‑Tokens nur via ENV.
+
+Datenbank: PostgreSQL (Fallback SQLite für Dev)
+
+Dokumentation: README.md und Inline‑Docs
+
+Makefile: vollständige Befehle (s. unten)
+
+Docker (optional): Dockerfile + docker-compose für Dev (kann weggelassen werden, falls lokal einfacher).
+
+Domänenmodell (Kernbegriffe)
+
+ART (Agile Release Train): name, business_owner_it (Text), Timestamps
+
+Application: name, alphabet_id (String), description, FK→ART (optional), Timestamps
+
+Repository: name, external_id (z. B. GitLab‑ID), url, description, tech_stack (Text/JSON), is_active (Bool), FK→Application (nullable), Timestamps
+
+Prompt: title, short_description, category (z. B. „Techstack“, „Fachlichkeit“, „Hexagonale Architektur“, „REST L2“), prompt_text
+
+KIProvider: name, base_url, model_name, auth_token_env_var (nur der Env‑Variablen‑Name, kein Secret), timeout_s
+
+PromptRun: FK→Repository, FK→Prompt, FK→KIProvider, request_text (effektiver Prompt), response_json (JSON), score_pct (0–100), summary (Text), improvement_suggestions (JSON inkl. Aufwandsschätzungen), endpoints (JSON optional), created_at
+
+Settings (konfigurierbar über Admin/„Einstellungen“): default_ki_provider, repo_download_root (Pfad), include_patterns (z. B. *.py,*.md,*.txt), exclude_paths (z. B. node_modules,dist,.git), max_concat_bytes (Schutzgrenze)
+
+Hinweis: Hexagonal umsetzen, indem die Domain (Entities, Value Objects, Ports) getrennt ist von Application‑Services und Adapters (Django/ORM, Git‑Clients, KI‑Clients, Web/DRF).
+
+Anwendungsfälle & Features
+
+Repository‑Import (GitLab on‑prem): Service „GitPlatformPort“ mit Adaptern:
+
+CSVMockAdapter – liest Repos aus tab‑getrennter CSV unter testdaten/ (mehrere Dateien möglich). Delimiter ist TAB ( ). Spalten: name, description, created_at, updated_at, visibility, is_active (0/1), web_url, namespace_path, external_id. Datumsfelder werden tolerant geparst (ISO‑8601 mit/ohne Offset, z. B. 2025-09-01T12:06:27.113+02:00).
+
+(Optional später) GitLabAdapter – echter Adapter per API.
+
+Persistenz: neue Repos anlegen/aktualisieren (upsert anhand external_id).
+
+Hinweis: Für Tests liegen ausgewählte Repository‑Inhalte in Unterverzeichnissen unter testdaten/<namespace_path>/<repo_name>/ und werden beim „Source holen“ verwendet, falls vorhanden (statt echtem Clone).
+
+Zuordnung: In „Einstellungen“ UI Repositories → Application, Applications → ART zuordnen; is_active toggeln.
+
+Navigation: Über ART → Application → aktive Repositories browsen.
+
+Quellcode‑Spiegelung: Für ein Repository werden Quellen entweder aus testdaten/<namespace_path>/<repo_name>/ übernommen (falls vorhanden) oder (optional später) via Git geclont. Speicherpfad ist konfigurierbar. Ausführung synchron mit Fortschrittsmeldungen in der UI.
+
+Markdown‑Korpus: Traversiert den Quellordner und erzeugt genau eine Markdown‑Datei pro Lauf mit Zeitstempel im Dateinamen (UTC ISO8601).
+
+Größenlimit: maximal 450 KB. Dateien werden in sinnvoller Reihenfolge aufgenommen, bis das Limit erreicht ist. Wird das Limit erreicht, werden keine weiteren Dateien hinzugefügt; am Ende folgt ein Hinweis auf die Unvollständigkeit.
+
+Nur Sourcen: Whitelist von Endungen: py,js,ts,tsx,jsx,java,kt,scala,go,rb,php,rs,c,cpp,h,hpp,cs,xml,json,yml,yaml,ini,tf,sql,sh,bat,ps1,gradle,mk,md,html,css.
+
+Aufnahmereihenfolge (Priorität): (1) README*/LICENSE/Root‑*.md, (2) Applikationscode (py, js/ts/tsx/jsx, java, go, …), (3) Framework/Domain/Ports, (4) API/Serializer/Views/URLs, (5) Konfiguration/Infrastructure (*.yml/yaml, *.json, Dockerfile, Makefile, pyproject.toml, package.json).
+
+Ausschlüsse: Binär‑/Office‑/Media‑Dateien sowie .git, node_modules, dist, build, target, venv, .venv werden ignoriert.
+
+Strukturerhalt: Zuerst Verzeichnisbaum; danach pro Datei Pfad als Sub‑Headline und Codeblock mit Inhalt.
+
+Prompts verwalten: CRUD für Prompts (Titel, Kurzbeschreibung, Kategorie, Text)
+
+KI‑Provider verwalten: CRUD (Name, Base‑URL, Modell, Timeout, Env‑Var‑Name für Token)
+
+Prompt an Repository ausführen: UI‑Aktion „Prompt senden“ wählt Prompt + Provider (oder Default): sendet request_text (i. d. R. prompt_text + Kontext, z. B. kurzer MD‑Korpus‑Ausschnitt/Link), erhält JSON:
+
+description, score_pct, improvement_suggestions (mit Aufwand), optional endpoints Liste
+
+Speichern in PromptRun; in Repo‑Detail die letzte Antwort pro Prompt zeigen + Historie einsehbar.
+
+Hexagonale Struktur (Projektlayout)
+repo_analyst/
+  manage.py
+  pyproject.toml
+  Makefile
+  .env.example
+  docker-compose.yml
+  Dockerfile
+  README.md
+  src/
+    config/                # Django settings, URLs, WSGI/ASGI
+    domain/                # Reine Domain (Entities, Ports)
+    application/           # UseCases/Services (Import, Assign, Analyze, Markdown)
+    adapters/
+      persistence/         # ORM-Adapter (Django Models + Repositories)
+      git_platform/        # GitLabAdapter, MockAdapter
+      ki/                  # KI-Client-Adapter (HTTP)
+      web/                 # Django Views, DRF ViewSets, Forms
+    infrastructure/
+      tasks/               # Celery Tasks
+      logging/             # Logging-Setup (JSON, RequestID)
+      settings/            # App-Settings (ENV)
+    ui/                    # Templates (Bootstrap), static/ (CSS/JS)
+    tests/
+      bdd/                 # pytest-bdd Feature-Files + Steps
+      unit/
+      integration/
+    seeds/
+      mock_repos.json
+Wichtige Implementierungsdetails
+Ports (Interfaces)
+
+GitPlatformPort: list_repositories(page_size, page_token) -> Page[RepoDTO]
+
+KIClientPort: analyze(prompt_text: str) -> dict
+
+MarkdownPort: build_corpus(repo_path, include, exclude, max_bytes) -> list[Path]
+
+Adapter
+
+GitLabAdapter: konfigurierbar via ENV: GITLAB_BASE_URL, GITLAB_TOKEN (ENV vorhanden), Paginierung; Retry/Rate‑Limit Respekt
+
+MockAdapter: liest seeds/mock_repos.json
+
+KIAdapter: generisch (HTTP POST auf base_url + model_name, Authorization: Bearer $ENV_TOKEN)
+
+Persistence (Django ORM)
+
+Modelle gemäß Domänenmodell; Repository‑Klassen, die domain‑Ports implementieren
+
+Migrations + Admin
+
+Markdown‑Generator
+
+Traversiert Repo‑Ordner; baut Verzeichnisbaum (z. B. tree‑ähnlich) in MD; inkludiert Dateien in ```‑Codeblöcken mit Pfadüberschrift
+
+Schutz: Größe deckeln; mehrere MD‑Dateien pro Lauf zulassen; Zeitstempel (UTC ISO8601) im Dateinamen
+
+UI/DRF
+
+Menü: Dashboard | Repositories | Applications | ARTs | Prompts | KI‑Provider | Einstellungen (ohne Login im ersten Schritt)
+
+Einstellungen: Pfade/Patterns, Default‑Provider, Import starten (Button)
+
+Listen/Filter: nach ART/Application/is_active
+
+Detailansicht Repository: Basisdaten, letzte Prompt‑Ergebnisse tabellarisch, Button „Prompt senden“, Sektion „Historie anzeigen“
+
+DRF: CRUD für alle Entitäten, sichere Serializer, Pagination, Filter, Ordering
+
+Makefile (Mindestumfang)
+
+Targets (mit phony):
+
+setup (venv, install)
+
+migrate, makemigrations, createsuperuser
+
+run (Django runserver), celery (Celery Worker/Beat), redis
+
+test, test-bdd, lint (ruff), format (ruff/black), coverage
+
+seed (lädt seeds/mock_repos.json), import-repos (Adapter wählbar), clone REPO_ID=..., build-md REPO_ID=...
+
+collectstatic
+
+docker-build, docker-up, docker-down
+
+Jeder Target mit klaren Befehlen und .env‑Unterstützung.
+
+Tests (pytest + pytest-bdd)
+
+Feature: import_repositories.feature – Import über Mock, Repos existieren in DB
+
+Feature: assign_application.feature – Zuordnung Repo→App und App→ART, nur aktive Repos in Navigation
+
+Feature: markdown_corpus.feature – Erzeugte MD‑Dateien enthalten Struktur + Inhalte
+
+Feature: prompt_run.feature – KI‑Antwort (Mock) wird gespeichert, letzte Antwort sichtbar, Historie abrufbar
+
+Unit‑Tests für Ports/Adapter, Application‑Services; Factories mit factory_boy
+
+Konfiguration über ENV (.env.example)
+
+DJANGO_SECRET_KEY, DJANGO_DEBUG, DJANGO_ALLOWED_HOSTS
+
+DATABASE_URL (Postgres), TIME_ZONE=Europe/Berlin, LANGUAGE_CODE=de
+
+LOG_LEVEL, LOG_JSON=1
+
+GITLAB_BASE_URL, GITLAB_TOKEN
+
+REPO_DOWNLOAD_ROOT=/data/repos
+
+INCLUDE_PATTERNS=*.py,*.md,*.txt, EXCLUDE_PATHS=.git,node_modules,dist
+
+MAX_CONCAT_BYTES=5242880
+
+Beliebige KI‑Tokens: z. B. OPENAI_API_KEY, AZURE_OPENAI_KEY, etc.
+
+Security & Datenschutz
+
+Keine Speicherung von KI‑Secrets; nur Namen der ENV‑Vars in DB
+
+CSRF‑Schutz, Loginpflicht für alle Ansichten außer Login
+
+Rechte/Rollen (optional): Admin vs. Editor
+
+Output‑Erwartungen (WIE liefern)
+
+Zeige den vollständigen Projektbaum.
+
+Liefere die zentralen Dateien als Codeblöcke: pyproject.toml, settings.py, urls.py, wichtigste Modelle/Serializer/ViewSets, Ports/Adapter‑Skeletons, Celery‑Setup, Makefile, Dockerfile, docker-compose, Templates (je 1–2 repräsentative), Tests (je Feature 1 Beispiel), README.md.
+
+Wo nötig: Platzhalter/Mocks; aber lauf‑ und testfähig.
+
+Erkläre kurz, wie ich starte: make setup && make migrate && make run …
+
+Beispiel‑Mockdaten
+
+seeds/mock_repos.json (Schema):
+
+[
+  {
+    "external_id": 101,
+    "name": "billing-service",
+    "url": "https://gitlab.example.local/group/billing-service.git",
+    "description": "Abrechnungssystem",
+    "tech_stack": "python,django,drf"
+  },
+  {
+    "external_id": 102,
+    "name": "customer-portal",
+    "url": "https://gitlab.example.local/group/customer-portal.git",
+    "description": "Kundenportal",
+    "tech_stack": "node,react,express"
+  }
+]
+Akzeptanzkriterien (Auszug)
+
+Import über Mock erzeugt alle Repositories in der DB (idempotent)
+
+Navigation zeigt nur is_active=true
+
+Clone + MD‑Korpus erzeugen Dateien mit Zeitstempel und Strukturbaum
+
+PromptRun speichert JSON mit score_pct, improvement_suggestions und optional endpoints
+
+In Repo‑Detailseite wird je Prompt die neueste Antwort gezeigt; Historie ist erreichbar
+
+Makefile‑Ziele funktionieren lokal (Dev)
+
+BDD‑Szenarien laufen grün
+
+Bitte jetzt implementieren
+
+Erzeuge anhand dieser Spezifikation das komplette Django‑Projekt inkl. Code, Konfiguration, Tests, Makefile und kurzer Startanleitung. Falls Grenzen der Ausgabegröße erreicht werden, liefere in logisch sinnvollen Blöcken (Teil 1/…); beginne mit Projektgerüst, Settings, Domain/Ports, zentrale Modelle, Makefile und README.md. Danach folge mit Adaptern, UI, Tasks und Tests.

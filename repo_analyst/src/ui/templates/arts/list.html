@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}ARTs - Repo-Analyst{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-diagram-3"></i> ARTs</h1>
+    <a href="{% url 'art-create' %}" class="btn btn-success">
+        <i class="bi bi-plus-circle"></i> Neues ART
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if arts %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Business Owner IT</th>
+                        <th>Anwendungen</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for art in arts %}
+                    <tr>
+                        <td><a href="{% url 'art-detail' art.pk %}"><strong>{{ art.name }}</strong></a></td>
+                        <td>{{ art.business_owner_it|truncatewords:10 }}</td>
+                        <td>{{ art.applications.count }}</td>
+                        <td>
+                            <a href="{% url 'art-detail' art.pk %}" class="btn btn-sm btn-outline-primary">Details</a>
+                            <a href="{% url 'art-update' art.pk %}" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">Keine ARTs vorhanden.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

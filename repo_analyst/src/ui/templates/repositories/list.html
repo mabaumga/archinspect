@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Repositories - Repo-Analyst{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-folder"></i> Repositories</h1>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="is_active" class="form-label">Status</label>
+                <select name="is_active" id="is_active" class="form-select">
+                    <option value="">Alle</option>
+                    <option value="true" {% if request.GET.is_active == "true" %}selected{% endif %}>Aktiv</option>
+                    <option value="false" {% if request.GET.is_active == "false" %}selected{% endif %}>Inaktiv</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="application" class="form-label">Anwendung</label>
+                <select name="application" id="application" class="form-select">
+                    <option value="">Alle</option>
+                    {% for app in applications %}
+                    <option value="{{ app.id }}" {% if request.GET.application|stringformat:"s" == app.id|stringformat:"s" %}selected{% endif %}>
+                        {{ app.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="art" class="form-label">ART</label>
+                <select name="art" id="art" class="form-select">
+                    <option value="">Alle</option>
+                    {% for art in arts %}
+                    <option value="{{ art.id }}" {% if request.GET.art|stringformat:"s" == art.id|stringformat:"s" %}selected{% endif %}>
+                        {{ art.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">Filtern</button>
+                <a href="{% url 'repository-list' %}" class="btn btn-secondary">Zurücksetzen</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Repository List -->
+<div class="card">
+    <div class="card-body">
+        {% if repositories %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Anwendung</th>
+                        <th>ART</th>
+                        <th>Clone-Status</th>
+                        <th>Status</th>
+                        <th>Aktualisiert</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for repo in repositories %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'repository-detail' repo.pk %}">
+                                <strong>{{ repo.name }}</strong>
+                            </a>
+                            <br>
+                            <small class="text-muted">{{ repo.namespace_path }}</small>
+                        </td>
+                        <td>
+                            {% if repo.application %}
+                                <a href="{% url 'application-detail' repo.application.pk %}">
+                                    {{ repo.application.name }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if repo.application.art %}
+                                <a href="{% url 'art-detail' repo.application.art.pk %}">
+                                    {{ repo.application.art.name }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if repo.local_path %}
+                                <span class="badge bg-success" title="Geklont nach {{ repo.local_path }}">
+                                    <i class="bi bi-check-circle"></i> Geklont
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-x-circle"></i> Nicht geklont
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if repo.is_active %}success{% else %}secondary{% endif %}">
+                                {% if repo.is_active %}Aktiv{% else %}Inaktiv{% endif %}
+                            </span>
+                        </td>
+                        <td>{{ repo.updated_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'repository-clone' repo.pk %}"
+                                   class="btn btn-{% if repo.local_path %}outline-secondary{% else %}outline-primary{% endif %}"
+                                   title="{% if repo.local_path %}Aktualisieren{% else %}Klonen{% endif %}">
+                                    <i class="bi bi-{% if repo.local_path %}arrow-repeat{% else %}cloud-download{% endif %}"></i>
+                                </a>
+                                <a href="{% url 'repository-detail' repo.pk %}" class="btn btn-outline-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav>
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1">Erste</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Zurück</a>
+                </li>
+                {% endif %}
+
+                <li class="page-item active">
+                    <span class="page-link">Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}</span>
+                </li>
+
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Weiter</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Letzte</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        {% else %}
+        <p class="text-muted">Keine Repositories gefunden.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

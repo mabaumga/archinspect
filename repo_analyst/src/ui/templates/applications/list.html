@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Anwendungen - Repo-Analyst{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-app"></i> Anwendungen</h1>
+    <a href="{% url 'application-create' %}" class="btn btn-success">
+        <i class="bi bi-plus-circle"></i> Neue Anwendung
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if applications %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Alphabet ID</th>
+                        <th>ART</th>
+                        <th>Repositories</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for app in applications %}
+                    <tr>
+                        <td><a href="{% url 'application-detail' app.pk %}"><strong>{{ app.name }}</strong></a></td>
+                        <td>{{ app.alphabet_id }}</td>
+                        <td>
+                            {% if app.art %}
+                                <a href="{% url 'art-detail' app.art.pk %}">{{ app.art.name }}</a>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ app.repositories.count }}</td>
+                        <td>
+                            <a href="{% url 'application-detail' app.pk %}" class="btn btn-sm btn-outline-primary">Details</a>
+                            <a href="{% url 'application-update' app.pk %}" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">Keine Anwendungen vorhanden.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

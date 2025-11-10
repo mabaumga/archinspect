@@ -26,37 +26,74 @@ class RepositoryImportService:
     def __init__(self, git_platform: GitPlatformPort):
         self.git_platform = git_platform
 
-    @transaction.atomic
-    def import_repositories(self) -> int:
+    def import_repositories(self, page_size: int = 100) -> dict:
         """
-        Import repositories from configured Git platform.
+        Import all repositories from configured Git platform with pagination.
+
+        Args:
+            page_size: Number of repositories to fetch per page
 
         Returns:
-            Number of repositories imported/updated
+            Dictionary with import statistics (total, created, updated)
         """
-        logger.info("Starting repository import")
-        repos = self.git_platform.list_repositories()
-        count = 0
+        logger.info("Starting repository import with pagination")
+        total_count = 0
+        created_count = 0
+        updated_count = 0
+        page = 1
 
-        for repo_dto in repos:
-            repo, created = RepositoryModel.objects.update_or_create(
-                external_id=repo_dto.external_id,
-                defaults={
-                    "name": repo_dto.name,
-                    "url": repo_dto.url,
-                    "description": repo_dto.description,
-                    "tech_stack": repo_dto.tech_stack,
-                    "namespace_path": repo_dto.namespace_path,
-                    "visibility": repo_dto.visibility,
-                    "is_active": repo_dto.is_active,
-                },
+        while True:
+            logger.info(f"Fetching page {page} (page_size={page_size})")
+            repos = self.git_platform.list_repositories(
+                page_size=page_size,
+                page_token=str(page)
             )
-            action = "created" if created else "updated"
-            logger.info(f"Repository {repo.name} {action}")
-            count += 1
 
-        logger.info(f"Repository import completed: {count} repositories processed")
-        return count
+            if not repos:
+                logger.info(f"No more repositories found on page {page}. Import complete.")
+                break
+
+            logger.info(f"Processing {len(repos)} repositories from page {page}")
+
+            with transaction.atomic():
+                for repo_dto in repos:
+                    repo, created = RepositoryModel.objects.update_or_create(
+                        external_id=repo_dto.external_id,
+                        defaults={
+                            "name": repo_dto.name,
+                            "url": repo_dto.url,
+                            "description": repo_dto.description,
+                            "tech_stack": repo_dto.tech_stack,
+                            "namespace_path": repo_dto.namespace_path,
+                            "visibility": repo_dto.visibility,
+                            "is_active": repo_dto.is_active,
+                        },
+                    )
+                    action = "created" if created else "updated"
+                    logger.debug(f"Repository {repo.name} {action}")
+                    total_count += 1
+                    if created:
+                        created_count += 1
+                    else:
+                        updated_count += 1
+
+            logger.info(f"Page {page} completed: {len(repos)} repositories processed")
+
+            # Break if we got fewer repositories than the page size
+            # This indicates we've reached the last page
+            if len(repos) < page_size:
+                logger.info(f"Last page reached (got {len(repos)} < {page_size})")
+                break
+
+            page += 1
+
+        result = {
+            "total": total_count,
+            "created": created_count,
+            "updated": updated_count,
+        }
+        logger.info(f"Repository import completed: {result}")
+        return result
 
 
 class RepositoryAssignmentService:

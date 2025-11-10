@@ -39,7 +39,7 @@ class RepositorySerializer(serializers.ModelSerializer):
         model = Repository
         fields = [
             "id", "name", "external_id", "url", "description", "tech_stack",
-            "namespace_path", "visibility", "is_active", "local_path",
+            "namespace_path", "visibility", "is_active", "is_flagged", "local_path",
             "application", "application_name", "art_name",
             "created_at", "updated_at"
         ]

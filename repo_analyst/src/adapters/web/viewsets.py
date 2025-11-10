@@ -58,7 +58,7 @@ class RepositoryViewSet(viewsets.ModelViewSet):
     """ViewSet for Repository management."""
     queryset = Repository.objects.all()
     serializer_class = RepositorySerializer
-    filterset_fields = ["is_active", "application", "visibility"]
+    filterset_fields = ["is_active", "is_flagged", "application", "visibility"]
     search_fields = ["name", "namespace_path", "external_id", "description"]
     ordering_fields = ["name", "updated_at", "created_at"]
 
@@ -97,6 +97,55 @@ class RepositoryViewSet(viewsets.ModelViewSet):
         repository.save()
         serializer = self.get_serializer(repository)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def toggle_flag(self, request, pk=None):
+        """Toggle repository flag status."""
+        repository = self.get_object()
+        repository.is_flagged = not repository.is_flagged
+        repository.save()
+        serializer = self.get_serializer(repository)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["post"])
+    def import_from_platform(self, request):
+        """Import all repositories from configured Git platform."""
+        from adapters.git_platform.csv_adapter import CSVMockAdapter
+        from application.services import RepositoryImportService
+        from pathlib import Path
+        import os
+
+        try:
+            # Get page size from request or use default
+            page_size = int(request.data.get("page_size", 100))
+
+            # TODO: Get adapter configuration from AppSettings
+            # For now, use CSV adapter as default
+            # Path from viewsets.py: src/adapters/web/viewsets.py -> go 5 levels up to project root
+            project_root = Path(__file__).parent.parent.parent.parent.parent
+            testdata_path = project_root / "testdata" / "test_repositories.tsv"
+
+            if not testdata_path.exists():
+                raise FileNotFoundError(f"Test data file not found: {testdata_path}")
+
+            adapter = CSVMockAdapter(testdata_path)
+
+            # Create import service and execute
+            service = RepositoryImportService(adapter)
+            result = service.import_repositories(page_size=page_size)
+
+            return Response({
+                "status": "success",
+                "message": f"Import completed: {result['total']} repositories processed",
+                "statistics": result
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error importing repositories: {e}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class PromptViewSet(viewsets.ModelViewSet):

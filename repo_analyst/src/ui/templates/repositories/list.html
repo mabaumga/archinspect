@@ -5,18 +5,39 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-folder"></i> Repositories</h1>
+    <button class="btn btn-primary" onclick="importRepositories()">
+        <i class="bi bi-cloud-download"></i> Repositories importieren
+    </button>
+</div>
+
+<!-- Import Status Alert (initially hidden) -->
+<div id="importAlert" class="alert alert-info d-none" role="alert">
+    <div class="d-flex align-items-center">
+        <div class="spinner-border spinner-border-sm me-2" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <span id="importMessage">Import läuft...</span>
+    </div>
 </div>
 
 <!-- Filters -->
 <div class="card mb-3">
     <div class="card-body">
         <form method="get" class="row g-3">
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label for="is_active" class="form-label">Status</label>
                 <select name="is_active" id="is_active" class="form-select">
                     <option value="">Alle</option>
                     <option value="true" {% if request.GET.is_active == "true" %}selected{% endif %}>Aktiv</option>
                     <option value="false" {% if request.GET.is_active == "false" %}selected{% endif %}>Inaktiv</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="is_flagged" class="form-label">Wichtig</label>
+                <select name="is_flagged" id="is_flagged" class="form-select">
+                    <option value="">Alle</option>
+                    <option value="true" {% if request.GET.is_flagged == "true" %}selected{% endif %}>Markiert</option>
+                    <option value="false" {% if request.GET.is_flagged == "false" %}selected{% endif %}>Nicht markiert</option>
                 </select>
             </div>
             <div class="col-md-3">
@@ -57,6 +78,7 @@
             <table class="table table-hover">
                 <thead>
                     <tr>
+                        <th>Wichtig</th>
                         <th>Name</th>
                         <th>Anwendung</th>
                         <th>ART</th>
@@ -69,6 +91,13 @@
                 <tbody>
                     {% for repo in repositories %}
                     <tr>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-{% if repo.is_flagged %}warning{% else %}outline-secondary{% endif %}"
+                                    onclick="toggleFlag({{ repo.pk }}, this)"
+                                    title="{% if repo.is_flagged %}Als unwichtig markieren{% else %}Als wichtig markieren{% endif %}">
+                                <i class="bi bi-{% if repo.is_flagged %}star-fill{% else %}star{% endif %}"></i>
+                            </button>
+                        </td>
                         <td>
                             <a href="{% url 'repository-detail' repo.pk %}">
                                 <strong>{{ repo.name }}</strong>
@@ -162,4 +191,98 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function importRepositories() {
+    const alertDiv = document.getElementById('importAlert');
+    const messageSpan = document.getElementById('importMessage');
+    const btn = event.target.closest('button');
+
+    // Disable button and show alert
+    btn.disabled = true;
+    alertDiv.classList.remove('d-none', 'alert-success', 'alert-danger');
+    alertDiv.classList.add('alert-info');
+    messageSpan.textContent = 'Import läuft...';
+
+    fetch('/api/v1/repositories/import_from_platform/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ page_size: 100 })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alertDiv.classList.remove('alert-info');
+            alertDiv.classList.add('alert-success');
+            messageSpan.textContent = `Import erfolgreich! ${data.statistics.total} Repositories verarbeitet (${data.statistics.created} neu, ${data.statistics.updated} aktualisiert)`;
+
+            // Reload page after 2 seconds
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            throw new Error(data.error || 'Unbekannter Fehler');
+        }
+    })
+    .catch(error => {
+        alertDiv.classList.remove('alert-info');
+        alertDiv.classList.add('alert-danger');
+        messageSpan.textContent = `Import fehlgeschlagen: ${error.message}`;
+        btn.disabled = false;
+    });
+}
+
+function toggleFlag(repoId, button) {
+    button.disabled = true;
+
+    fetch(`/api/v1/repositories/${repoId}/toggle_flag/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Update button appearance
+        const icon = button.querySelector('i');
+        if (data.is_flagged) {
+            button.classList.remove('btn-outline-secondary');
+            button.classList.add('btn-warning');
+            icon.classList.remove('bi-star');
+            icon.classList.add('bi-star-fill');
+            button.title = 'Als unwichtig markieren';
+        } else {
+            button.classList.remove('btn-warning');
+            button.classList.add('btn-outline-secondary');
+            icon.classList.remove('bi-star-fill');
+            icon.classList.add('bi-star');
+            button.title = 'Als wichtig markieren';
+        }
+        button.disabled = false;
+    })
+    .catch(error => {
+        alert(`Fehler beim Markieren: ${error.message}`);
+        button.disabled = false;
+    });
+}
+</script>
 {% endblock %}

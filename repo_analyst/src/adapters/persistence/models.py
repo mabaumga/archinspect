@@ -48,6 +48,7 @@ class Repository(models.Model):
     namespace_path = models.CharField(max_length=500, blank=True)
     visibility = models.CharField(max_length=50, default="internal")
     is_active = models.BooleanField(default=True, db_index=True)
+    is_flagged = models.BooleanField(default=False, db_index=True, help_text="Mark as important repository")
     local_path = models.CharField(max_length=500, blank=True)
     application = models.ForeignKey(
         Application,

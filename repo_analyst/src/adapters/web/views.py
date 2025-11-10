@@ -55,6 +55,11 @@ class RepositoryListView(ListView):
         if is_active:
             queryset = queryset.filter(is_active=(is_active == "true"))
 
+        # Filter by flagged
+        is_flagged = self.request.GET.get("is_flagged")
+        if is_flagged:
+            queryset = queryset.filter(is_flagged=(is_flagged == "true"))
+
         # Filter by application
         application_id = self.request.GET.get("application")
         if application_id:

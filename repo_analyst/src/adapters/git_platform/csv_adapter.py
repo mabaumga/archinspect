@@ -31,17 +31,18 @@ class CSVMockAdapter(GitPlatformPort):
 
     def list_repositories(self, page_size: int = 100, page_token: Optional[str] = None) -> List[RepositoryDTO]:
         """
-        Read repositories from TSV file.
+        Read repositories from TSV file with pagination support.
 
         Args:
-            page_size: Not used in mock (returns all)
-            page_token: Not used in mock
+            page_size: Number of repositories per page
+            page_token: Page number (as string) for pagination (default: "1")
 
         Returns:
-            List of RepositoryDTO objects
+            List of RepositoryDTO objects for the requested page
         """
-        logger.info(f"Reading repositories from {self.csv_path}")
-        repositories = []
+        page = int(page_token) if page_token else 1
+        logger.info(f"Reading repositories from {self.csv_path} (page={page}, page_size={page_size})")
+        all_repositories = []
 
         try:
             with open(self.csv_path, 'r', encoding='utf-8') as f:
@@ -71,7 +72,7 @@ class CSVMockAdapter(GitPlatformPort):
                             updated_at=updated_at,
                         )
 
-                        repositories.append(repo)
+                        all_repositories.append(repo)
                         logger.debug(f"Parsed repository: {repo.name}")
 
                     except Exception as e:
@@ -82,8 +83,13 @@ class CSVMockAdapter(GitPlatformPort):
             logger.error(f"Error reading CSV file: {e}")
             raise
 
-        logger.info(f"Loaded {len(repositories)} repositories from CSV")
-        return repositories
+        # Apply pagination
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_repositories = all_repositories[start_idx:end_idx]
+
+        logger.info(f"Loaded {len(all_repositories)} total repositories, returning {len(paginated_repositories)} for page {page}")
+        return paginated_repositories
 
     def _parse_date(self, date_str: str) -> Optional[datetime]:
         """

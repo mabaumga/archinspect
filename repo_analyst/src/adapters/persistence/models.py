@@ -122,6 +122,9 @@ class PromptRun(models.Model):
     """Result of running a prompt against a repository"""
     repository = models.ForeignKey(Repository, on_delete=models.CASCADE, related_name="prompt_runs")
     prompt = models.ForeignKey(Prompt, on_delete=models.CASCADE, related_name="runs")
+    prompt_text_snapshot = models.TextField(
+        help_text="Snapshot of prompt text at execution time for auditability"
+    )
     ki_provider = models.ForeignKey(KIProvider, on_delete=models.CASCADE, related_name="runs")
     request_text = models.TextField()
     response_json = models.JSONField()

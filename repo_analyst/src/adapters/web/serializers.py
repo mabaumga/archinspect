@@ -99,8 +99,9 @@ class PromptRunSerializer(serializers.ModelSerializer):
         model = PromptRun
         fields = [
             "id", "repository", "repository_name", "prompt", "prompt_title",
-            "ki_provider", "ki_provider_name", "request_text", "response_json",
-            "score_pct", "summary", "improvement_suggestions", "endpoints", "created_at"
+            "prompt_text_snapshot", "ki_provider", "ki_provider_name", "request_text",
+            "response_json", "score_pct", "summary", "improvement_suggestions",
+            "endpoints", "created_at"
         ]
         read_only_fields = ["id", "created_at"]
 

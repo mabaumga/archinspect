@@ -68,6 +68,23 @@
 </div>
 
 <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Verwendeter Prompt-Text</h5>
+        <small class="text-muted">
+            <i class="bi bi-info-circle"></i> Snapshot zum Zeitpunkt der Ausführung
+        </small>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info mb-2">
+            <i class="bi bi-archive"></i>
+            Dies ist der Prompt-Text, der zum Zeitpunkt der Ausführung verwendet wurde.
+            Änderungen am Prompt wirken sich nicht auf dieses Ergebnis aus.
+        </div>
+        <pre class="bg-light p-3 rounded" style="white-space: pre-wrap; word-wrap: break-word;">{{ prompt_run.prompt_text_snapshot }}</pre>
+    </div>
+</div>
+
+<div class="card mb-4">
     <div class="card-header">
         <h5 class="mb-0">Verbesserungsvorschläge</h5>
     </div>

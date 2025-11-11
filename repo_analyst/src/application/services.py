@@ -275,6 +275,7 @@ class PromptExecutionService:
             prompt_run = PromptRunModel.objects.create(
                 repository=repo,
                 prompt=prompt,
+                prompt_text_snapshot=prompt.prompt_text,  # Save snapshot for auditability
                 ki_provider=ki_provider,
                 request_text=request_text,
                 response_json=response,

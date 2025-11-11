@@ -88,6 +88,13 @@ class RepositoryListView(ListView):
         context = super().get_context_data(**kwargs)
         context["applications"] = Application.objects.all()
         context["arts"] = ART.objects.all()
+
+        # Build query string for pagination (preserve all filters except page)
+        query_params = self.request.GET.copy()
+        if 'page' in query_params:
+            query_params.pop('page')
+        context["query_string"] = query_params.urlencode()
+
         return context
 
 

@@ -247,15 +247,43 @@ class PromptExecutionService:
 
         logger.info(f"Executing prompt '{prompt.title}' on repository {repo.name}")
 
-        # Build request text (could include corpus context)
-        request_text = prompt.prompt_text
-
         # Get latest corpus if available
         latest_corpus = repo.markdown_corpora.first()
-        if latest_corpus:
-            context = f"Repository: {repo.name}\nCorpus available at: {latest_corpus.file_path}"
-        else:
-            context = f"Repository: {repo.name}\nNo corpus generated yet"
+
+        if not latest_corpus:
+            raise ValueError(
+                f"No corpus found for repository {repo.name}. "
+                "Please generate a corpus first before executing prompts."
+            )
+
+        # Read corpus content from file
+        corpus_path = Path(latest_corpus.file_path)
+        if not corpus_path.exists():
+            raise ValueError(
+                f"Corpus file not found: {corpus_path}. "
+                "Please regenerate the corpus."
+            )
+
+        logger.info(f"Loading corpus from {corpus_path} ({latest_corpus.file_size_bytes} bytes)")
+        try:
+            corpus_content = corpus_path.read_text(encoding='utf-8')
+        except Exception as e:
+            raise ValueError(f"Failed to read corpus file: {e}")
+
+        # Build request text (prompt only, corpus goes in context)
+        request_text = prompt.prompt_text
+
+        # Build context with repository info and full corpus
+        context = f"""Repository: {repo.name}
+Namespace: {repo.namespace_path}
+Description: {repo.description or 'N/A'}
+Corpus Generated: {latest_corpus.created_at.isoformat()}
+Corpus Size: {latest_corpus.file_size_bytes} bytes
+Corpus Complete: {'Yes' if latest_corpus.is_complete else 'No (size limit reached)'}
+
+--- Repository Source Code ---
+{corpus_content}
+"""
 
         # Execute prompt via KI client
         try:

@@ -18,6 +18,7 @@ env = environ.Env(
     LOG_LEVEL=(str, "INFO"),
     LOG_JSON=(bool, False),
     REPO_DOWNLOAD_ROOT=(str, "/data/repos"),
+    CORPUS_OUTPUT_DIR=(str, "/data/corpus"),
     INCLUDE_PATTERNS=(str, "*.py,*.md,*.txt,*.js,*.ts,*.tsx,*.jsx,*.java,*.kt,*.go,*.yml,*.yaml,*.json"),
     EXCLUDE_PATHS=(str, ".git,node_modules,dist,build,target,venv,.venv,__pycache__"),
     MAX_CONCAT_BYTES=(int, 460800),
@@ -205,6 +206,7 @@ LOGGING = {
 
 # Application settings
 REPO_DOWNLOAD_ROOT = Path(env("REPO_DOWNLOAD_ROOT"))
+CORPUS_OUTPUT_DIR = Path(env("CORPUS_OUTPUT_DIR"))
 INCLUDE_PATTERNS = env("INCLUDE_PATTERNS").split(",")
 EXCLUDE_PATHS = env("EXCLUDE_PATHS").split(",")
 MAX_CONCAT_BYTES = env("MAX_CONCAT_BYTES")

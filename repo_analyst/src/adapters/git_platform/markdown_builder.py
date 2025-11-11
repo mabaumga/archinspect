@@ -47,7 +47,8 @@ class MarkdownCorpusBuilder(MarkdownCorpusPort):
         repo_path: Path,
         include_patterns: List[str],
         exclude_paths: List[str],
-        max_bytes: int
+        max_bytes: int,
+        output_dir: Path = None
     ) -> Path:
         """
         Build markdown corpus from repository.
@@ -57,6 +58,7 @@ class MarkdownCorpusBuilder(MarkdownCorpusPort):
             include_patterns: File patterns to include (e.g., *.py)
             exclude_paths: Directories to exclude
             max_bytes: Maximum size in bytes (450KB limit)
+            output_dir: Directory where corpus file should be saved (default: repo_path)
 
         Returns:
             Path to generated markdown file
@@ -75,7 +77,7 @@ class MarkdownCorpusBuilder(MarkdownCorpusPort):
         logger.info(f"Prioritized {len(prioritized_files)} files")
 
         # Generate markdown with size limit
-        output_path = self._generate_output_path(repo_path)
+        output_path = self._generate_output_path(repo_path, output_dir)
         file_count, total_size, is_complete = self._write_markdown(
             prioritized_files,
             repo_path,
@@ -148,11 +150,28 @@ class MarkdownCorpusBuilder(MarkdownCorpusPort):
 
         return prioritized
 
-    def _generate_output_path(self, repo_path: Path) -> Path:
-        """Generate output path with timestamp."""
+    def _generate_output_path(self, repo_path: Path, output_dir: Path = None) -> Path:
+        """
+        Generate output path with timestamp.
+
+        Args:
+            repo_path: Path to repository
+            output_dir: Directory where file should be saved (default: repo_path)
+
+        Returns:
+            Path to output file with format: {repo_name}_{timestamp}.html
+        """
         timestamp = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
-        filename = f"{repo_path.name}_corpus_{timestamp}.md"
-        output_path = repo_path / filename
+        filename = f"{repo_path.name}_{timestamp}.html"
+
+        if output_dir:
+            # Ensure output directory exists
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_path = output_dir / filename
+        else:
+            # Default: save in repo directory
+            output_path = repo_path / filename
+
         return output_path
 
     def _write_markdown(

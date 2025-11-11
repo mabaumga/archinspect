@@ -16,7 +16,9 @@ from adapters.persistence.models import (
     MarkdownCorpus,
     Prompt,
     PromptRun,
+    QualityAnalysis,
     Repository,
+    ServiceEndpoint,
 )
 from application.services import PromptExecutionService
 
@@ -29,8 +31,10 @@ from .serializers import (
     PromptRunCreateSerializer,
     PromptRunSerializer,
     PromptSerializer,
+    QualityAnalysisSerializer,
     RepositoryDetailSerializer,
     RepositorySerializer,
+    ServiceEndpointSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -344,3 +348,25 @@ class BackupViewSet(viewsets.ViewSet):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class ServiceEndpointViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet for Service Endpoints (read-only)."""
+    queryset = ServiceEndpoint.objects.select_related(
+        "prompt_run__repository__application"
+    ).all()
+    serializer_class = ServiceEndpointSerializer
+    filterset_fields = ["endpoint_type", "prompt_run__repository"]
+    search_fields = ["url", "operation_name", "description"]
+    ordering_fields = ["created_at", "endpoint_type", "maturity_score_pct"]
+
+
+class QualityAnalysisViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet for Quality Analyses (read-only)."""
+    queryset = QualityAnalysis.objects.select_related(
+        "prompt_run__repository__application"
+    ).all()
+    serializer_class = QualityAnalysisSerializer
+    filterset_fields = ["analysis_type", "prompt_run__repository"]
+    search_fields = ["assessment_text"]
+    ordering_fields = ["created_at", "score_pct", "analysis_type"]

@@ -10,7 +10,17 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from adapters.git_platform.clone_service import GitCloneService
 from adapters.ki.http_client import MockKIClient
-from adapters.persistence.models import ART, Application, AppSettings, KIProvider, Prompt, PromptRun, Repository
+from adapters.persistence.models import (
+    ART,
+    Application,
+    AppSettings,
+    KIProvider,
+    Prompt,
+    PromptRun,
+    QualityAnalysis,
+    Repository,
+    ServiceEndpoint,
+)
 from application.services import PromptExecutionService
 
 from .forms import (
@@ -450,6 +460,124 @@ class PromptRunDetailView(DetailView):
     template_name = "promptruns/detail.html"
     context_object_name = "prompt_run"
 
+
+# Quality Analysis Views
+class QualityAnalysisListView(ListView):
+    """List all quality analyses."""
+    model = QualityAnalysis
+    template_name = "quality_analyses/list.html"
+    context_object_name = "analyses"
+    paginate_by = 20
+
+    def get_queryset(self):
+        from django.db.models import Q
+
+        queryset = QualityAnalysis.objects.select_related(
+            "prompt_run__repository__application",
+            "prompt_run__prompt"
+        )
+
+        # Search by text
+        search = self.request.GET.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(assessment_text__icontains=search) |
+                Q(prompt_run__repository__name__icontains=search)
+            )
+
+        # Filter by analysis type
+        analysis_type = self.request.GET.get("analysis_type")
+        if analysis_type:
+            queryset = queryset.filter(analysis_type=analysis_type)
+
+        # Filter by repository
+        repository_id = self.request.GET.get("repository")
+        if repository_id:
+            queryset = queryset.filter(prompt_run__repository_id=repository_id)
+
+        # Filter by score range
+        min_score = self.request.GET.get("min_score")
+        if min_score:
+            queryset = queryset.filter(score_pct__gte=int(min_score))
+
+        max_score = self.request.GET.get("max_score")
+        if max_score:
+            queryset = queryset.filter(score_pct__lte=int(max_score))
+
+        return queryset.order_by("-prompt_run__created_at")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["repositories"] = Repository.objects.all().order_by("name")
+        context["analysis_types"] = QualityAnalysis.ANALYSIS_TYPE_CHOICES
+
+        # Build query string for pagination
+        query_params = self.request.GET.copy()
+        if 'page' in query_params:
+            query_params.pop('page')
+        context["query_string"] = query_params.urlencode()
+
+        return context
+
+
+# Service Endpoint Views
+class ServiceEndpointListView(ListView):
+    """List all service endpoints."""
+    model = ServiceEndpoint
+    template_name = "service_endpoints/list.html"
+    context_object_name = "endpoints"
+    paginate_by = 20
+
+    def get_queryset(self):
+        from django.db.models import Q
+
+        queryset = ServiceEndpoint.objects.select_related(
+            "prompt_run__repository__application"
+        )
+
+        # Search by text
+        search = self.request.GET.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(url__icontains=search) |
+                Q(operation_name__icontains=search) |
+                Q(description__icontains=search) |
+                Q(prompt_run__repository__name__icontains=search)
+            )
+
+        # Filter by endpoint type
+        endpoint_type = self.request.GET.get("endpoint_type")
+        if endpoint_type:
+            queryset = queryset.filter(endpoint_type=endpoint_type)
+
+        # Filter by repository
+        repository_id = self.request.GET.get("repository")
+        if repository_id:
+            queryset = queryset.filter(prompt_run__repository_id=repository_id)
+
+        # Filter by maturity score
+        min_score = self.request.GET.get("min_score")
+        if min_score:
+            queryset = queryset.filter(maturity_score_pct__gte=int(min_score))
+
+        max_score = self.request.GET.get("max_score")
+        if max_score:
+            queryset = queryset.filter(maturity_score_pct__lte=int(max_score))
+
+        return queryset.order_by("-prompt_run__created_at")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["repositories"] = Repository.objects.all().order_by("name")
+        context["endpoint_types"] = ServiceEndpoint.ENDPOINT_TYPE_CHOICES
+
+        # Build query string for pagination
+        query_params = self.request.GET.copy()
+        if 'page' in query_params:
+            query_params.pop('page')
+        context["query_string"] = query_params.urlencode()
+
+        return context
 
 
 # Backup & Restore Views

@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}Service-Endpoints - Repo-Analyst{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-bezier2"></i> Service-Endpoints</h1>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-12 mb-2">
+                <label for="search" class="form-label">Suche</label>
+                <input type="text"
+                       class="form-control"
+                       id="search"
+                       name="search"
+                       value="{{ request.GET.search }}"
+                       placeholder="Suche nach URL, Operation oder Repository...">
+            </div>
+            <div class="col-md-3">
+                <label for="endpoint_type" class="form-label">Typ</label>
+                <select name="endpoint_type" id="endpoint_type" class="form-select">
+                    <option value="">Alle</option>
+                    {% for type_code, type_label in endpoint_types %}
+                    <option value="{{ type_code }}" {% if request.GET.endpoint_type == type_code %}selected{% endif %}>
+                        {{ type_label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="repository" class="form-label">Repository</label>
+                <select name="repository" id="repository" class="form-select">
+                    <option value="">Alle</option>
+                    {% for repo in repositories %}
+                    <option value="{{ repo.id }}" {% if request.GET.repository|stringformat:"s" == repo.id|stringformat:"s" %}selected{% endif %}>
+                        {{ repo.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="min_score" class="form-label">Min. Reifegrad (%)</label>
+                <input type="number"
+                       class="form-control"
+                       id="min_score"
+                       name="min_score"
+                       min="0"
+                       max="100"
+                       value="{{ request.GET.min_score }}"
+                       placeholder="0">
+            </div>
+            <div class="col-md-2">
+                <label for="max_score" class="form-label">Max. Reifegrad (%)</label>
+                <input type="number"
+                       class="form-control"
+                       id="max_score"
+                       name="max_score"
+                       min="0"
+                       max="100"
+                       value="{{ request.GET.max_score }}"
+                       placeholder="100">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">Filtern</button>
+                <a href="{% url 'service-endpoint-list' %}" class="btn btn-secondary">Zurücksetzen</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Endpoint List -->
+<div class="card">
+    <div class="card-body">
+        {% if endpoints %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Typ</th>
+                        <th>Repository</th>
+                        <th>Anwendung</th>
+                        <th>URL/Operation</th>
+                        <th>HTTP-Methode</th>
+                        <th>Reifegrad</th>
+                        <th>Erstellt</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for endpoint in endpoints %}
+                    <tr>
+                        <td>
+                            <span class="badge bg-{% if endpoint.endpoint_type == 'REST' %}info{% else %}warning{% endif %}">
+                                {{ endpoint.get_endpoint_type_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if endpoint.prompt_run.repository %}
+                                <a href="{% url 'repository-detail' endpoint.prompt_run.repository.pk %}">
+                                    <strong>{{ endpoint.prompt_run.repository.name }}</strong>
+                                </a>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if endpoint.prompt_run.repository.application %}
+                                <a href="{% url 'application-detail' endpoint.prompt_run.repository.application.pk %}">
+                                    {{ endpoint.prompt_run.repository.application.name }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if endpoint.operation_name %}
+                                <strong>{{ endpoint.operation_name }}</strong><br>
+                            {% endif %}
+                            <small class="text-muted" style="word-break: break-all;">{{ endpoint.url|truncatechars:60 }}</small>
+                        </td>
+                        <td>
+                            {% if endpoint.http_method %}
+                                <span class="badge bg-secondary">{{ endpoint.http_method }}</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if endpoint.maturity_score_pct is not None %}
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1 me-2" style="height: 20px; min-width: 80px;">
+                                        <div class="progress-bar
+                                            {% if endpoint.maturity_score_pct >= 75 %}bg-success
+                                            {% elif endpoint.maturity_score_pct >= 50 %}bg-warning
+                                            {% else %}bg-danger{% endif %}"
+                                             role="progressbar"
+                                             style="width: {{ endpoint.maturity_score_pct }}%"
+                                             aria-valuenow="{{ endpoint.maturity_score_pct }}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100">
+                                            {{ endpoint.maturity_score_pct }}%
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">L{{ endpoint.actual_maturity_level|default:"-" }}/{{ endpoint.target_maturity_level }}</small>
+                                </div>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ endpoint.prompt_run.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary"
+                                    onclick="showEndpointDetails({{ endpoint.id }})"
+                                    title="Details anzeigen">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav>
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page=1">Erste</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}">Zurück</a>
+                </li>
+                {% endif %}
+
+                <li class="page-item active">
+                    <span class="page-link">Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}</span>
+                </li>
+
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}">Weiter</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.paginator.num_pages }}">Letzte</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        {% else %}
+        <p class="text-muted">Keine Service-Endpoints gefunden.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Endpoint Details Modal -->
+<div class="modal fade" id="endpointModal" tabindex="-1" aria-labelledby="endpointModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="endpointModalLabel">Endpoint-Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="endpointModalBody">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showEndpointDetails(endpointId) {
+    const modal = new bootstrap.Modal(document.getElementById('endpointModal'));
+    const modalBody = document.getElementById('endpointModalBody');
+
+    // Show loading state
+    modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+    modal.show();
+
+    // Fetch endpoint details from API
+    fetch(`/api/v1/service-endpoints/${endpointId}/`)
+        .then(response => response.json())
+        .then(data => {
+            modalBody.innerHTML = `
+                <div class="mb-3">
+                    <h6>Typ</h6>
+                    <span class="badge bg-${data.endpoint_type === 'REST' ? 'info' : 'warning'}">${data.endpoint_type_display}</span>
+                </div>
+                <div class="mb-3">
+                    <h6>Repository</h6>
+                    <p>${data.repository_name || '-'}</p>
+                </div>
+                ${data.operation_name ? `
+                <div class="mb-3">
+                    <h6>Operation</h6>
+                    <p>${data.operation_name}</p>
+                </div>
+                ` : ''}
+                <div class="mb-3">
+                    <h6>URL</h6>
+                    <p style="word-break: break-all;">${data.url}</p>
+                </div>
+                ${data.http_method ? `
+                <div class="mb-3">
+                    <h6>HTTP-Methode</h6>
+                    <span class="badge bg-secondary">${data.http_method}</span>
+                </div>
+                ` : ''}
+                ${data.description ? `
+                <div class="mb-3">
+                    <h6>Beschreibung</h6>
+                    <p>${data.description}</p>
+                </div>
+                ` : ''}
+                <div class="mb-3">
+                    <h6>Reifegrad</h6>
+                    <p>Ziel: Level ${data.target_maturity_level} | Aktuell: Level ${data.actual_maturity_level || '-'}</p>
+                    ${data.maturity_score_pct !== null ? `
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar ${data.maturity_score_pct >= 75 ? 'bg-success' : data.maturity_score_pct >= 50 ? 'bg-warning' : 'bg-danger'}"
+                             role="progressbar" style="width: ${data.maturity_score_pct}%">${data.maturity_score_pct}%</div>
+                    </div>
+                    ` : ''}
+                </div>
+                ${data.assessment ? `
+                <div class="mb-3">
+                    <h6>Bewertung</h6>
+                    <p>${data.assessment}</p>
+                </div>
+                ` : ''}
+            `;
+        })
+        .catch(error => {
+            modalBody.innerHTML = `<div class="alert alert-danger">Fehler beim Laden der Details: ${error.message}</div>`;
+        });
+}
+</script>
+{% endblock %}

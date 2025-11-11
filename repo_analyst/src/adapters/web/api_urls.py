@@ -13,7 +13,9 @@ from .viewsets import (
     MarkdownCorpusViewSet,
     PromptRunViewSet,
     PromptViewSet,
+    QualityAnalysisViewSet,
     RepositoryViewSet,
+    ServiceEndpointViewSet,
 )
 
 app_name = "v1"
@@ -28,6 +30,8 @@ router.register(r"prompt-runs", PromptRunViewSet, basename="promptrun")
 router.register(r"settings", AppSettingsViewSet, basename="appsettings")
 router.register(r"markdown-corpora", MarkdownCorpusViewSet, basename="markdowncorpus")
 router.register(r"backups", BackupViewSet, basename="backup")
+router.register(r"service-endpoints", ServiceEndpointViewSet, basename="serviceendpoint")
+router.register(r"quality-analyses", QualityAnalysisViewSet, basename="qualityanalysis")
 
 urlpatterns = [
     path("", include(router.urls)),

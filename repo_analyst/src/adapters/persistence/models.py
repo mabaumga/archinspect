@@ -122,6 +122,9 @@ class PromptRun(models.Model):
     """Result of running a prompt against a repository"""
     repository = models.ForeignKey(Repository, on_delete=models.CASCADE, related_name="prompt_runs")
     prompt = models.ForeignKey(Prompt, on_delete=models.CASCADE, related_name="runs")
+    prompt_text_snapshot = models.TextField(
+        help_text="Snapshot of prompt text at execution time for auditability"
+    )
     ki_provider = models.ForeignKey(KIProvider, on_delete=models.CASCADE, related_name="runs")
     request_text = models.TextField()
     response_json = models.JSONField()
@@ -191,3 +194,111 @@ class MarkdownCorpus(models.Model):
 
     def __str__(self):
         return f"{self.repository.name} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+class ServiceEndpoint(models.Model):
+    """
+    Service endpoint discovered in repository (REST/SOAP).
+    Extracted from PromptRun analysis.
+    """
+    ENDPOINT_TYPE_CHOICES = [
+        ("REST", "REST API"),
+        ("SOAP", "SOAP Service"),
+    ]
+
+    HTTP_METHOD_CHOICES = [
+        ("GET", "GET"),
+        ("POST", "POST"),
+        ("PUT", "PUT"),
+        ("DELETE", "DELETE"),
+        ("PATCH", "PATCH"),
+        ("HEAD", "HEAD"),
+        ("OPTIONS", "OPTIONS"),
+    ]
+
+    prompt_run = models.ForeignKey(PromptRun, on_delete=models.CASCADE, related_name="service_endpoints")
+    endpoint_type = models.CharField(max_length=10, choices=ENDPOINT_TYPE_CHOICES)
+    url = models.CharField(max_length=1000, help_text="URL path or WSDL URL")
+    http_method = models.CharField(max_length=10, choices=HTTP_METHOD_CHOICES, blank=True, null=True, help_text="HTTP method (REST only)")
+    operation_name = models.CharField(max_length=200, blank=True, help_text="Operation name (SOAP only)")
+    description = models.TextField(blank=True)
+    assessment = models.TextField(blank=True, help_text="Quality assessment of this endpoint")
+
+    # Maturity Model
+    target_maturity_level = models.IntegerField(default=2, help_text="Target maturity level (e.g., 2 for REST Level 2)")
+    actual_maturity_level = models.IntegerField(null=True, blank=True, help_text="Actual achieved maturity level (0-3 for REST)")
+    maturity_score_pct = models.IntegerField(null=True, blank=True, help_text="How well target is met (0-100%)")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "url"]
+        indexes = [
+            models.Index(fields=["prompt_run", "endpoint_type"]),
+            models.Index(fields=["endpoint_type", "-created_at"]),
+        ]
+
+    def __str__(self):
+        if self.endpoint_type == "REST":
+            return f"{self.http_method} {self.url}"
+        else:
+            return f"{self.operation_name or self.url}"
+
+    @property
+    def repository(self):
+        """Helper to get repository from prompt_run"""
+        return self.prompt_run.repository
+
+
+class QualityAnalysis(models.Model):
+    """
+    Quality analysis result for a repository.
+    Covers BDD, Security, Hexagonal Architecture, Performance, etc.
+    """
+    ANALYSIS_TYPE_CHOICES = [
+        ("BDD", "Behavior Driven Development"),
+        ("SECURITY", "Security Analysis"),
+        ("HEXAGONAL", "Hexagonal Architecture"),
+        ("PERFORMANCE", "Performance Analysis"),
+        ("REST", "REST API Quality"),
+        ("SOAP", "SOAP Service Quality"),
+        ("TESTING", "Test Coverage & Quality"),
+        ("DOCUMENTATION", "Documentation Quality"),
+        ("CODE_QUALITY", "Code Quality"),
+        ("OTHER", "Other"),
+    ]
+
+    prompt_run = models.ForeignKey(PromptRun, on_delete=models.CASCADE, related_name="quality_analyses")
+    analysis_type = models.CharField(max_length=20, choices=ANALYSIS_TYPE_CHOICES)
+    score_pct = models.IntegerField(help_text="Overall score 0-100")
+    assessment_text = models.TextField(help_text="Detailed assessment description")
+
+    # Structured data
+    advantages = models.JSONField(default=list, blank=True, help_text="List of identified advantages")
+    improvement_suggestions = models.JSONField(default=list, blank=True, help_text="List of improvement suggestions with effort")
+    effort_estimate_days = models.DecimalField(
+        max_digits=6,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        help_text="Total effort estimate in person-days"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Quality Analyses"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["prompt_run", "analysis_type"]),
+            models.Index(fields=["analysis_type", "-created_at"]),
+            models.Index(fields=["score_pct"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_analysis_type_display()} - {self.prompt_run.repository.name} ({self.score_pct}%)"
+
+    @property
+    def repository(self):
+        """Helper to get repository from prompt_run"""
+        return self.prompt_run.repository

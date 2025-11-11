@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}Qualitätsanalysen - Repo-Analyst{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-clipboard-check"></i> Qualitätsanalysen</h1>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-12 mb-2">
+                <label for="search" class="form-label">Suche</label>
+                <input type="text"
+                       class="form-control"
+                       id="search"
+                       name="search"
+                       value="{{ request.GET.search }}"
+                       placeholder="Suche nach Text oder Repository-Name...">
+            </div>
+            <div class="col-md-3">
+                <label for="analysis_type" class="form-label">Analyse-Typ</label>
+                <select name="analysis_type" id="analysis_type" class="form-select">
+                    <option value="">Alle</option>
+                    {% for type_code, type_label in analysis_types %}
+                    <option value="{{ type_code }}" {% if request.GET.analysis_type == type_code %}selected{% endif %}>
+                        {{ type_label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="repository" class="form-label">Repository</label>
+                <select name="repository" id="repository" class="form-select">
+                    <option value="">Alle</option>
+                    {% for repo in repositories %}
+                    <option value="{{ repo.id }}" {% if request.GET.repository|stringformat:"s" == repo.id|stringformat:"s" %}selected{% endif %}>
+                        {{ repo.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="min_score" class="form-label">Min. Score (%)</label>
+                <input type="number"
+                       class="form-control"
+                       id="min_score"
+                       name="min_score"
+                       min="0"
+                       max="100"
+                       value="{{ request.GET.min_score }}"
+                       placeholder="0">
+            </div>
+            <div class="col-md-2">
+                <label for="max_score" class="form-label">Max. Score (%)</label>
+                <input type="number"
+                       class="form-control"
+                       id="max_score"
+                       name="max_score"
+                       min="0"
+                       max="100"
+                       value="{{ request.GET.max_score }}"
+                       placeholder="100">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">Filtern</button>
+                <a href="{% url 'quality-analysis-list' %}" class="btn btn-secondary">Zurücksetzen</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Analysis List -->
+<div class="card">
+    <div class="card-body">
+        {% if analyses %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Typ</th>
+                        <th>Repository</th>
+                        <th>Anwendung</th>
+                        <th>Score</th>
+                        <th>Aufwand (Tage)</th>
+                        <th>Erstellt</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for analysis in analyses %}
+                    <tr>
+                        <td>
+                            <span class="badge bg-primary">{{ analysis.get_analysis_type_display }}</span>
+                        </td>
+                        <td>
+                            {% if analysis.prompt_run.repository %}
+                                <a href="{% url 'repository-detail' analysis.prompt_run.repository.pk %}">
+                                    <strong>{{ analysis.prompt_run.repository.name }}</strong>
+                                </a>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analysis.prompt_run.repository.application %}
+                                <a href="{% url 'application-detail' analysis.prompt_run.repository.application.pk %}">
+                                    {{ analysis.prompt_run.repository.application.name }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analysis.score_pct is not None %}
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1 me-2" style="height: 20px; min-width: 80px;">
+                                        <div class="progress-bar
+                                            {% if analysis.score_pct >= 75 %}bg-success
+                                            {% elif analysis.score_pct >= 50 %}bg-warning
+                                            {% else %}bg-danger{% endif %}"
+                                             role="progressbar"
+                                             style="width: {{ analysis.score_pct }}%"
+                                             aria-valuenow="{{ analysis.score_pct }}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100">
+                                            {{ analysis.score_pct }}%
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if analysis.effort_estimate_days %}
+                                {{ analysis.effort_estimate_days }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ analysis.prompt_run.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary"
+                                    onclick="showAnalysisDetails({{ analysis.id }})"
+                                    title="Details anzeigen">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav>
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page=1">Erste</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}">Zurück</a>
+                </li>
+                {% endif %}
+
+                <li class="page-item active">
+                    <span class="page-link">Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}</span>
+                </li>
+
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}">Weiter</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.paginator.num_pages }}">Letzte</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        {% else %}
+        <p class="text-muted">Keine Qualitätsanalysen gefunden.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Analysis Details Modal -->
+<div class="modal fade" id="analysisModal" tabindex="-1" aria-labelledby="analysisModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="analysisModalLabel">Analyse-Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="analysisModalBody">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showAnalysisDetails(analysisId) {
+    const modal = new bootstrap.Modal(document.getElementById('analysisModal'));
+    const modalBody = document.getElementById('analysisModalBody');
+
+    // Show loading state
+    modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+    modal.show();
+
+    // Fetch analysis details from API
+    fetch(`/api/v1/quality-analyses/${analysisId}/`)
+        .then(response => response.json())
+        .then(data => {
+            modalBody.innerHTML = `
+                <div class="mb-3">
+                    <h6>Typ</h6>
+                    <span class="badge bg-primary">${data.analysis_type_display}</span>
+                </div>
+                <div class="mb-3">
+                    <h6>Repository</h6>
+                    <p>${data.repository_name || '-'}</p>
+                </div>
+                <div class="mb-3">
+                    <h6>Score</h6>
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar ${data.score_pct >= 75 ? 'bg-success' : data.score_pct >= 50 ? 'bg-warning' : 'bg-danger'}"
+                             role="progressbar" style="width: ${data.score_pct}%">${data.score_pct}%</div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <h6>Bewertung</h6>
+                    <p>${data.assessment_text || '-'}</p>
+                </div>
+                ${data.advantages && data.advantages.length > 0 ? `
+                <div class="mb-3">
+                    <h6>Vorteile</h6>
+                    <ul>
+                        ${data.advantages.map(adv => `<li>${adv}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+                ${data.improvement_suggestions && data.improvement_suggestions.length > 0 ? `
+                <div class="mb-3">
+                    <h6>Verbesserungsvorschläge</h6>
+                    <ul>
+                        ${data.improvement_suggestions.map(sug => `<li>${sug}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+                ${data.effort_estimate_days ? `
+                <div class="mb-3">
+                    <h6>Aufwand (Tage)</h6>
+                    <p>${data.effort_estimate_days}</p>
+                </div>
+                ` : ''}
+            `;
+        })
+        .catch(error => {
+            modalBody.innerHTML = `<div class="alert alert-danger">Fehler beim Laden der Details: ${error.message}</div>`;
+        });
+}
+</script>
+{% endblock %}

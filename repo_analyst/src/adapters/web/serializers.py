@@ -11,7 +11,9 @@ from adapters.persistence.models import (
     MarkdownCorpus,
     Prompt,
     PromptRun,
+    QualityAnalysis,
     Repository,
+    ServiceEndpoint,
 )
 
 
@@ -97,8 +99,9 @@ class PromptRunSerializer(serializers.ModelSerializer):
         model = PromptRun
         fields = [
             "id", "repository", "repository_name", "prompt", "prompt_title",
-            "ki_provider", "ki_provider_name", "request_text", "response_json",
-            "score_pct", "summary", "improvement_suggestions", "endpoints", "created_at"
+            "prompt_text_snapshot", "ki_provider", "ki_provider_name", "request_text",
+            "response_json", "score_pct", "summary", "improvement_suggestions",
+            "endpoints", "created_at"
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -133,3 +136,35 @@ class MarkdownCorpusSerializer(serializers.ModelSerializer):
             "file_size_bytes", "file_count", "is_complete", "created_at"
         ]
         read_only_fields = ["id", "created_at"]
+
+
+class ServiceEndpointSerializer(serializers.ModelSerializer):
+    repository_name = serializers.CharField(source="prompt_run.repository.name", read_only=True)
+    application_name = serializers.CharField(source="prompt_run.repository.application.name", read_only=True)
+    endpoint_type_display = serializers.CharField(source="get_endpoint_type_display", read_only=True)
+
+    class Meta:
+        model = ServiceEndpoint
+        fields = [
+            "id", "prompt_run", "endpoint_type", "endpoint_type_display",
+            "url", "http_method", "operation_name", "description", "assessment",
+            "target_maturity_level", "actual_maturity_level", "maturity_score_pct",
+            "repository_name", "application_name", "created_at"
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class QualityAnalysisSerializer(serializers.ModelSerializer):
+    repository_name = serializers.CharField(source="prompt_run.repository.name", read_only=True)
+    application_name = serializers.CharField(source="prompt_run.repository.application.name", read_only=True)
+    analysis_type_display = serializers.CharField(source="get_analysis_type_display", read_only=True)
+
+    class Meta:
+        model = QualityAnalysis
+        fields = [
+            "id", "prompt_run", "analysis_type", "analysis_type_display",
+            "score_pct", "assessment_text", "advantages", "improvement_suggestions",
+            "effort_estimate_days", "repository_name", "application_name", "created_at"
+        ]
+        read_only_fields = ["id", "created_at"]
+

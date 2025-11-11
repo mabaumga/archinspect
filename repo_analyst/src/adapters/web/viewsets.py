@@ -109,26 +109,16 @@ class RepositoryViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"])
     def import_from_platform(self, request):
-        """Import all repositories from configured Git platform."""
-        from adapters.git_platform.csv_adapter import CSVMockAdapter
+        """Import all repositories from configured source code platform."""
         from application.services import RepositoryImportService
-        from pathlib import Path
-        import os
+        from infrastructure.adapter_factory import AdapterFactory
 
         try:
             # Get page size from request or use default
             page_size = int(request.data.get("page_size", 100))
 
-            # TODO: Get adapter configuration from AppSettings
-            # For now, use CSV adapter as default
-            # Path from viewsets.py: src/adapters/web/viewsets.py -> go 5 levels up to project root
-            project_root = Path(__file__).parent.parent.parent.parent.parent
-            testdata_path = project_root / "testdata" / "test_repositories.tsv"
-
-            if not testdata_path.exists():
-                raise FileNotFoundError(f"Test data file not found: {testdata_path}")
-
-            adapter = CSVMockAdapter(testdata_path)
+            # Create adapter via factory
+            adapter = AdapterFactory.create_source_code_repository_adapter()
 
             # Create import service and execute
             service = RepositoryImportService(adapter)

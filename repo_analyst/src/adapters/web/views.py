@@ -130,7 +130,10 @@ def repository_toggle_active(request, pk):
 
 
 def repository_clone(request, pk):
-    """Clone/checkout repository from GitLab (mocked)."""
+    """Clone/checkout repository from configured source code platform."""
+    from infrastructure.adapter_factory import AdapterFactory
+    from pathlib import Path
+
     repository = get_object_or_404(Repository, pk=pk)
 
     # Get app settings
@@ -139,46 +142,59 @@ def repository_clone(request, pk):
         messages.error(request, "App-Einstellungen nicht gefunden. Bitte führen Sie 'make seed' aus.")
         return redirect("repository-detail", pk=pk)
 
-    target_root = app_settings.repo_download_root
+    target_root = Path(app_settings.repo_download_root)
 
     try:
-        # Initialize clone service
-        clone_service = GitCloneService()
+        # Create adapter via factory
+        adapter = AdapterFactory.create_source_code_repository_adapter()
 
-        # Clone or update repository (copies from testdata in mock)
-        cloned_path, was_updated = clone_service.update_or_clone_repository(
-            repo_name=repository.name,
-            namespace_path=repository.namespace_path,
-            target_root=target_root,
-            source_url=repository.url,
-            local_path=repository.local_path
-        )
+        # Determine if we need to clone or update
+        was_updated = False
+        if repository.local_path and Path(repository.local_path).exists():
+            # Update existing repository
+            cloned_path = adapter.update_repository(Path(repository.local_path))
+            was_updated = True
+        else:
+            # Clone new repository
+            cloned_path = adapter.clone_repository(
+                repo_name=repository.name,
+                repo_url=repository.url,
+                namespace_path=repository.namespace_path,
+                target_dir=target_root
+            )
 
         # Update repository with local path
         repository.local_path = str(cloned_path)
         repository.save()
 
-        # Get clone status for user feedback
-        status = clone_service.get_clone_status(str(cloned_path))
+        # Get status for user feedback
+        file_count = sum(1 for _ in cloned_path.rglob('*') if _.is_file())
+        size_bytes = sum(f.stat().st_size for f in cloned_path.rglob('*') if f.is_file())
+        size_mb = round(size_bytes / (1024 * 1024), 2)
 
         # Different message for clone vs update
         action = "aktualisiert" if was_updated else "geklont"
         messages.success(
             request,
             f"Repository '{repository.name}' erfolgreich {action} nach {cloned_path}. "
-            f"({status.get('file_count', 0)} Dateien, {status.get('size_mb', 0)} MB)"
+            f"({file_count} Dateien, {size_mb} MB)"
         )
         logger.info(
             f"{'Updated' if was_updated else 'Cloned'} repository {repository.name}",
-            extra={"repository_id": repository.id, "path": str(cloned_path), "status": status, "was_updated": was_updated}
+            extra={
+                "repository_id": repository.id,
+                "path": str(cloned_path),
+                "file_count": file_count,
+                "size_mb": size_mb,
+                "was_updated": was_updated
+            }
         )
 
     except FileNotFoundError as e:
-        logger.error(f"Repository not found in testdata: {e}")
+        logger.error(f"Repository not found: {e}")
         messages.error(
             request,
-            f"Repository '{repository.name}' konnte nicht geklont werden: "
-            f"Quellcode nicht in Testdaten gefunden. {str(e)}"
+            f"Repository '{repository.name}' konnte nicht geklont werden: {str(e)}"
         )
     except Exception as e:
         logger.error(f"Error cloning repository: {e}", exc_info=True)

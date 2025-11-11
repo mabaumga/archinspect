@@ -16,7 +16,7 @@ env = environ.Env(
     TIME_ZONE=(str, "Europe/Berlin"),
     LANGUAGE_CODE=(str, "de"),
     LOG_LEVEL=(str, "INFO"),
-    LOG_JSON=(bool, True),
+    LOG_JSON=(bool, False),
     REPO_DOWNLOAD_ROOT=(str, "/data/repos"),
     INCLUDE_PATTERNS=(str, "*.py,*.md,*.txt,*.js,*.ts,*.tsx,*.jsx,*.java,*.kt,*.go,*.yml,*.yaml,*.json"),
     EXCLUDE_PATHS=(str, ".git,node_modules,dist,build,target,venv,.venv,__pycache__"),
@@ -160,6 +160,11 @@ LOGGING = {
             "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
             "style": "{",
         },
+        "simple": {
+            "format": "[{asctime}] {levelname:8s} {name:30s} {message}",
+            "style": "{",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
     },
     "filters": {
         "request_id": {
@@ -169,8 +174,8 @@ LOGGING = {
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "json" if LOG_JSON else "verbose",
-            "filters": ["request_id"],
+            "formatter": "json" if LOG_JSON else "simple",
+            "filters": ["request_id"] if LOG_JSON else [],
         },
     },
     "root": {

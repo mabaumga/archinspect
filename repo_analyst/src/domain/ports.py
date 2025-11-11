@@ -89,3 +89,53 @@ class RepositoryMirrorPort(ABC):
             Path to mirrored repository
         """
         pass
+
+
+class SourceCodeRepositoryPort(ABC):
+    """
+    Combined port for source code repository operations.
+    Includes both listing repositories and cloning/mirroring them.
+    """
+
+    @abstractmethod
+    def list_repositories(self, page_size: int = 100, page_token: Optional[str] = None) -> List[RepositoryDTO]:
+        """
+        List repositories from the source code platform.
+
+        Args:
+            page_size: Number of repositories per page
+            page_token: Pagination token for next page
+
+        Returns:
+            List of RepositoryDTO objects
+        """
+        pass
+
+    @abstractmethod
+    def clone_repository(self, repo_name: str, repo_url: str, namespace_path: str, target_dir: Path) -> Path:
+        """
+        Clone/mirror repository source code locally.
+
+        Args:
+            repo_name: Repository name
+            repo_url: Repository URL (for cloning)
+            namespace_path: Namespace path
+            target_dir: Target directory for cloning
+
+        Returns:
+            Path to cloned repository
+        """
+        pass
+
+    @abstractmethod
+    def update_repository(self, local_path: Path) -> Path:
+        """
+        Update an already cloned repository.
+
+        Args:
+            local_path: Path to local repository
+
+        Returns:
+            Path to updated repository
+        """
+        pass

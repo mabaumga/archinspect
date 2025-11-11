@@ -21,6 +21,11 @@ env = environ.Env(
     INCLUDE_PATTERNS=(str, "*.py,*.md,*.txt,*.js,*.ts,*.tsx,*.jsx,*.java,*.kt,*.go,*.yml,*.yaml,*.json"),
     EXCLUDE_PATHS=(str, ".git,node_modules,dist,build,target,venv,.venv,__pycache__"),
     MAX_CONCAT_BYTES=(int, 460800),
+    # Source code repository adapter configuration
+    REPOSITORY_ADAPTER=(str, "mock"),
+    GITLAB_URL=(str, ""),
+    GITLAB_ACCESS_TOKEN=(str, ""),
+    GITLAB_SSL_VERIFY=(bool, True),
 )
 
 # Read .env file if exists

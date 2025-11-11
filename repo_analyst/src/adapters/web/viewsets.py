@@ -234,3 +234,113 @@ class MarkdownCorpusViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = MarkdownCorpusSerializer
     filterset_fields = ["repository", "is_complete"]
     ordering_fields = ["created_at"]
+
+
+class BackupViewSet(viewsets.ViewSet):
+    """ViewSet for backup and restore operations."""
+
+    @action(detail=False, methods=["get"])
+    def list_backups(self, request):
+        """List all available backups."""
+        from application.backup_service import BackupService
+        from django.conf import settings
+
+        try:
+            service = BackupService(settings.BACKUP_DIR)
+            backups = service.list_backups()
+
+            return Response({
+                "status": "success",
+                "backups": backups
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error listing backups: {e}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=["post"])
+    def create_backup(self, request):
+        """Create a new backup."""
+        from application.backup_service import BackupService
+        from django.conf import settings
+
+        try:
+            backup_name = request.data.get("name")
+            service = BackupService(settings.BACKUP_DIR)
+            backup_dir = service.create_backup(name=backup_name)
+
+            return Response({
+                "status": "success",
+                "message": f"Backup created successfully",
+                "backup_name": backup_dir.name,
+                "path": str(backup_dir)
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            logger.error(f"Error creating backup: {e}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=["post"])
+    def restore_backup(self, request, pk=None):
+        """Restore a backup."""
+        from application.backup_service import BackupService
+        from django.conf import settings
+
+        try:
+            backup_name = pk
+            clear_existing = request.data.get("clear_existing", True)
+
+            service = BackupService(settings.BACKUP_DIR)
+            counts = service.restore_backup(backup_name, clear_existing=clear_existing)
+
+            return Response({
+                "status": "success",
+                "message": f"Backup restored successfully",
+                "counts": counts
+            }, status=status.HTTP_200_OK)
+
+        except FileNotFoundError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error restoring backup: {e}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=["delete"])
+    def delete_backup(self, request, pk=None):
+        """Delete a backup."""
+        from application.backup_service import BackupService
+        from django.conf import settings
+
+        try:
+            backup_name = pk
+            service = BackupService(settings.BACKUP_DIR)
+            service.delete_backup(backup_name)
+
+            return Response({
+                "status": "success",
+                "message": f"Backup deleted successfully"
+            }, status=status.HTTP_200_OK)
+
+        except FileNotFoundError as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error deleting backup: {e}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

@@ -48,7 +48,19 @@ class RepositoryListView(ListView):
     paginate_by = 20
 
     def get_queryset(self):
+        from django.db.models import Q
+
         queryset = Repository.objects.select_related("application", "application__art")
+
+        # Search by text
+        search = self.request.GET.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) |
+                Q(url__icontains=search) |
+                Q(namespace_path__icontains=search) |
+                Q(description__icontains=search)
+            )
 
         # Filter by active
         is_active = self.request.GET.get("is_active")
@@ -430,3 +442,11 @@ class PromptRunDetailView(DetailView):
     model = PromptRun
     template_name = "promptruns/detail.html"
     context_object_name = "prompt_run"
+
+
+
+# Backup & Restore Views
+def backup_list(request):
+    """Backup and restore management page."""
+    return render(request, "backup/list.html")
+

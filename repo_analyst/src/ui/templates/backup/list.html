@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}Backup & Restore - Repo-Analyst{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-database"></i> Backup & Restore</h1>
+    <button class="btn btn-success" onclick="createBackup()">
+        <i class="bi bi-plus-circle"></i> Neues Backup erstellen
+    </button>
+</div>
+
+<!-- Status Alert (initially hidden) -->
+<div id="statusAlert" class="alert alert-info d-none" role="alert">
+    <div class="d-flex align-items-center">
+        <div class="spinner-border spinner-border-sm me-2" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <span id="statusMessage">Wird verarbeitet...</span>
+    </div>
+</div>
+
+<!-- Backup Name Modal -->
+<div class="modal fade" id="backupNameModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Backup Name (optional)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" class="form-control" id="backupName" placeholder="Leer lassen für automatischen Timestamp">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-success" onclick="confirmBackup()">Backup erstellen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backup List -->
+<div class="card">
+    <div class="card-body">
+        <div id="backupList">
+            <div class="text-center text-muted py-5">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Lade Backups...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Bootstrap modal instance
+let backupModal;
+
+document.addEventListener('DOMContentLoaded', function() {
+    backupModal = new bootstrap.Modal(document.getElementById('backupNameModal'));
+    loadBackups();
+});
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showStatus(message, type = 'info') {
+    const alertDiv = document.getElementById('statusAlert');
+    const messageSpan = document.getElementById('statusMessage');
+    const spinner = alertDiv.querySelector('.spinner-border');
+
+    alertDiv.classList.remove('d-none', 'alert-info', 'alert-success', 'alert-danger');
+    alertDiv.classList.add(`alert-${type}`);
+    messageSpan.textContent = message;
+
+    if (type === 'info') {
+        spinner.classList.remove('d-none');
+    } else {
+        spinner.classList.add('d-none');
+    }
+
+    if (type !== 'info') {
+        setTimeout(() => {
+            alertDiv.classList.add('d-none');
+        }, 5000);
+    }
+}
+
+function loadBackups() {
+    fetch('/api/v1/backups/list_backups/', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            displayBackups(data.backups);
+        } else {
+            throw new Error(data.error || 'Fehler beim Laden der Backups');
+        }
+    })
+    .catch(error => {
+        document.getElementById('backupList').innerHTML = `
+            <div class="text-center text-danger py-5">
+                <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
+                <p class="mt-2">${error.message}</p>
+            </div>
+        `;
+    });
+}
+
+function displayBackups(backups) {
+    const backupList = document.getElementById('backupList');
+
+    if (backups.length === 0) {
+        backupList.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                <p class="mt-2">Keine Backups vorhanden</p>
+            </div>
+        `;
+        return;
+    }
+
+    const html = `
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Erstellt am</th>
+                        <th>Größe</th>
+                        <th>Anzahl Objekte</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${backups.map(backup => `
+                        <tr>
+                            <td><strong>${backup.name}</strong></td>
+                            <td>${new Date(backup.created_at).toLocaleString('de-DE')}</td>
+                            <td>${backup.size_mb} MB</td>
+                            <td>
+                                ${Object.entries(backup.counts || {}).map(([model, count]) =>
+                                    `<span class="badge bg-secondary me-1">${model}: ${count}</span>`
+                                ).join('')}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-primary" onclick="restoreBackup('${backup.name}')" title="Backup wiederherstellen">
+                                        <i class="bi bi-arrow-clockwise"></i> Restore
+                                    </button>
+                                    <button class="btn btn-danger" onclick="deleteBackup('${backup.name}')" title="Backup löschen">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    backupList.innerHTML = html;
+}
+
+function createBackup() {
+    document.getElementById('backupName').value = '';
+    backupModal.show();
+}
+
+function confirmBackup() {
+    const backupName = document.getElementById('backupName').value.trim() || null;
+    backupModal.hide();
+
+    showStatus('Backup wird erstellt...', 'info');
+
+    fetch('/api/v1/backups/create_backup/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ name: backupName })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showStatus(`Backup erfolgreich erstellt: ${data.backup_name}`, 'success');
+            loadBackups();
+        } else {
+            throw new Error(data.error || 'Unbekannter Fehler');
+        }
+    })
+    .catch(error => {
+        showStatus(`Backup fehlgeschlagen: ${error.message}`, 'danger');
+    });
+}
+
+function restoreBackup(backupName) {
+    if (!confirm(`Möchten Sie das Backup "${backupName}" wirklich wiederherstellen?\n\nWARNUNG: Alle aktuellen Daten werden überschrieben!`)) {
+        return;
+    }
+
+    showStatus('Backup wird wiederhergestellt...', 'info');
+
+    fetch(`/api/v1/backups/${backupName}/restore_backup/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ clear_existing: true })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const countsText = Object.entries(data.counts)
+                .map(([model, count]) => `${model}: ${count}`)
+                .join(', ');
+            showStatus(`Backup erfolgreich wiederhergestellt! (${countsText})`, 'success');
+
+            // Reload page after 3 seconds
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        } else {
+            throw new Error(data.error || 'Unbekannter Fehler');
+        }
+    })
+    .catch(error => {
+        showStatus(`Wiederherstellung fehlgeschlagen: ${error.message}`, 'danger');
+    });
+}
+
+function deleteBackup(backupName) {
+    if (!confirm(`Möchten Sie das Backup "${backupName}" wirklich löschen?`)) {
+        return;
+    }
+
+    showStatus('Backup wird gelöscht...', 'info');
+
+    fetch(`/api/v1/backups/${backupName}/delete_backup/`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showStatus('Backup erfolgreich gelöscht', 'success');
+            loadBackups();
+        } else {
+            throw new Error(data.error || 'Unbekannter Fehler');
+        }
+    })
+    .catch(error => {
+        showStatus(`Löschen fehlgeschlagen: ${error.message}`, 'danger');
+    });
+}
+</script>
+
+{% endblock %}

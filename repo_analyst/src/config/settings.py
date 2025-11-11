@@ -26,6 +26,8 @@ env = environ.Env(
     GITLAB_URL=(str, ""),
     GITLAB_ACCESS_TOKEN=(str, ""),
     GITLAB_SSL_VERIFY=(bool, True),
+    # Backup configuration
+    BACKUP_DIR=(str, "/data/backups"),
 )
 
 # Read .env file if exists
@@ -211,3 +213,6 @@ MAX_CONCAT_BYTES = env("MAX_CONCAT_BYTES")
 TESTDATA_ROOT = BASE_DIR.parent / "testdata"
 TESTDATA_REPOS_ROOT = TESTDATA_ROOT / "repos"
 TESTDATA_CSV_PATH = TESTDATA_ROOT / "test_repositories.tsv"
+
+# Backup directory
+BACKUP_DIR = Path(env("BACKUP_DIR"))

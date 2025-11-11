@@ -42,4 +42,7 @@ urlpatterns = [
 
     # Prompt Runs
     path("prompt-runs/<int:pk>/", views.PromptRunDetailView.as_view(), name="promptrun-detail"),
+
+    # Backup & Restore
+    path("backups/", views.backup_list, name="backup-list"),
 ]

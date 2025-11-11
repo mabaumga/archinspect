@@ -6,14 +6,26 @@ import logging
 import subprocess
 from pathlib import Path
 from typing import List, Optional
+import os
+from urllib.parse import urlparse
+import git, gitlab
+from git.exc import GitCommandError
 
-import gitlab
 from gitlab.exceptions import GitlabError
 
 from domain.entities import RepositoryDTO
 from domain.ports import SourceCodeRepositoryPort
 
 logger = logging.getLogger(__name__)
+
+
+def parse_repo_path(git_web_url: str) -> str:
+    u = urlparse(git_web_url)
+    path = u.path.strip("/")
+    if path.endswith(".git"):
+        path = path[:-4]
+    return path
+
 
 
 def mask_token(token: str) -> str:
@@ -51,7 +63,7 @@ class GitLabSourceCodeRepositoryAdapter(SourceCodeRepositoryPort):
         except GitlabError as e:
             logger.error(f"Failed to authenticate with GitLab: {e}")
             raise
-
+        self.access_token = private_token
         self.gitlab_url = gitlab_url
         self.ssl_verify = ssl_verify
 
@@ -78,7 +90,7 @@ class GitLabSourceCodeRepositoryAdapter(SourceCodeRepositoryPort):
                 page=page,
                 per_page=page_size,
                 # Get all projects the user has access to
-                membership=True,
+                #membership=True,
                 # Include archived projects
                 archived=False,
                 # Order by last activity
@@ -107,97 +119,65 @@ class GitLabSourceCodeRepositoryAdapter(SourceCodeRepositoryPort):
         except Exception as e:
             logger.error(f"Unexpected error fetching repositories: {e}")
             raise
-
         return repositories
-
-    def clone_repository(self, repo_name: str, repo_url: str, namespace_path: str, target_dir: Path) -> Path:
-        """
-        Clone repository using git clone.
-
-        Args:
-            repo_name: Repository name
-            repo_url: Repository URL (HTTP or SSH)
-            namespace_path: Namespace path
-            target_dir: Target directory for cloning
-
-        Returns:
-            Path to cloned repository
-        """
-        target_path = target_dir / namespace_path
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-
-        if target_path.exists():
-            logger.warning(f"Repository already exists at {target_path}, updating instead")
-            return self.update_repository(target_path)
-
-        logger.info(f"Cloning repository '{repo_name}' from {repo_url}")
-
+        
+    def resolve_project(self, repo_path: str, git_web_url: str):
+        logger.debug(f"resolve_project: repo_path='{repo_path}', url='{git_web_url}'")
         try:
-            # Clone repository
-            cmd = ["git", "clone", repo_url, str(target_path)]
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=600  # 10 minutes timeout
-            )
+            return self.gl.projects.get(repo_path)
+        except gitlab.exceptions.GitlabGetError as e:
+            logger.debug(f"projects.get('{repo_path}') failed: {e} (code={getattr(e, 'response_code', 'unknown')})")
+            # Fallback: suche über Namen und vergleiche URLs
 
-            if result.returncode != 0:
-                raise RuntimeError(
-                    f"Git clone failed with exit code {result.returncode}: {result.stderr}"
-                )
+            base = os.path.basename(repo_path)
+            candidates = self.gl.projects.list(search=base, per_page=50)
+            for p in candidates:
+                web = getattr(p, "web_url", "")
+                http = getattr(p, "http_url_to_repo", "").rstrip(".git")
+                if web == git_web_url or http == git_web_url.rstrip(".git"):
+                    logger.debug(f"Kandidat gefunden: id={p.id}, ns={getattr(p, 'path_with_namespace', '')}")
+                    return p
 
-            logger.info(f"Successfully cloned repository to {target_path}")
-            return target_path
+            raise    
 
-        except subprocess.TimeoutExpired:
-            logger.error(f"Git clone timed out for {repo_url}")
+    def clone_repository(self, repo_name: str, repo_url: str, namespace_path: str, target_dir: Path) -> Path:        
+        repo_path = parse_repo_path(repo_url)
+        logger.info(f"Update repository: path='{repo_path}', base='{target_dir}', url='{repo_url}'")
+        try:
+            project = self.resolve_project(repo_path, repo_url)
+            repo_http = project.http_url_to_repo
+            logger.debug(f"project.id={project.id}, ns={project.path_with_namespace}, http_url_to_repo={repo_http}")
+            auth_url = repo_http.replace("https://", f"https://oauth2:{self.access_token}@")
+            target_directory = os.path.join(target_dir, project.path_with_namespace)
+            logger.debug(f"Ziel: {target_directory}")
+            os.makedirs(target_directory, exist_ok=True)
+            if os.path.isdir(os.path.join(target_directory, ".git")):
+                repo = git.Repo(target_directory)
+                logger.info("git pull ...")
+                repo.remotes.origin.pull()
+                logger.info("Pull OK")
+            else:
+                logger.info("git clone ...")
+                git.Repo.clone_from(auth_url, target_directory)
+                logger.info("Clone OK")
+            return target_dir
+
+        except GitCommandError as e:
+            logger.exception(f"Git-Fehler beim Clone/Pull für '{repo_path}': {e}")
             raise
         except Exception as e:
-            logger.error(f"Error cloning repository: {e}")
+            logger.exception(f"Unerwarteter Fehler bei '{repo_path}': {e}")
             raise
+               
 
     def update_repository(self, local_path: Path) -> Path:
-        """
-        Update repository using git pull.
-
-        Args:
-            local_path: Path to local repository
-
-        Returns:
-            Path to updated repository
-        """
-        if not local_path.exists():
-            raise FileNotFoundError(f"Repository not found: {local_path}")
-
-        logger.info(f"Updating repository at {local_path}")
-
-        try:
-            # Pull latest changes
-            cmd = ["git", "-C", str(local_path), "pull"]
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=300  # 5 minutes timeout
-            )
-
-            if result.returncode != 0:
-                logger.warning(
-                    f"Git pull failed with exit code {result.returncode}: {result.stderr}"
-                )
-                # Don't raise error, just log warning - repository might be dirty
-            else:
-                logger.info(f"Successfully updated repository at {local_path}")
-
-            return local_path
-
-        except subprocess.TimeoutExpired:
-            logger.error(f"Git pull timed out for {local_path}")
-            raise
-        except Exception as e:
-            logger.error(f"Error updating repository: {e}")
-            raise
+        repo = git.Repo(local_path)
+        logger.info("git pull ...")
+        repo.remotes.origin.pull()
+        logger.info("Pull OK")
+        return Path(local_path)
+    
+       
 
     def _convert_project_to_dto(self, project) -> RepositoryDTO:
         """

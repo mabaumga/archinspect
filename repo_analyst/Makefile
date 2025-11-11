@@ -1,4 +1,4 @@
-.PHONY: help setup venv install migrate makemigrations createsuperuser run test test-bdd test-unit test-integration lint format coverage coverage-domain check-dod seed import-repos generate-md collectstatic clean
+ .PHONY: help setup venv install migrate makemigrations createsuperuser run test test-bdd test-unit test-integration lint format coverage coverage-domain check-dod seed import-repos generate-md collectstatic clean
 
 PYTHON := python3
 VENV := .venv

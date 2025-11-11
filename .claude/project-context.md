@@ -35,6 +35,8 @@
 - `models.py` liegt in `adapters/persistence/django/` (ORM = Persistence Detail)
 - Domain-Layer hat **KEINE** Framework-Dependencies
 - Container in `infrastructure/container.py` (Singleton Pattern)
+- ** Boy Scout Regel** Hinterlasse den Code immer sauberer als ihn vorgefunden hast - das betrifft insbesondere Tests
+- vor jedem Commit muss der Quality Gate make dod erfolgreich durchgelaufen sein
 
 ## Coding Standards
 
@@ -43,6 +45,8 @@
 - **NICHT**: `*RepositoryDjango` oder `*DjangoRepository`
 - **Port** (Interface) in `domain/ports/`
 - **Adapter** in `adapters/persistence/django/`
+
+
 
 ### Import-Konventionen
 - `adapters` (Plural!) - NICHT `adapter`

@@ -8,6 +8,7 @@ from .viewsets import (
     ARTViewSet,
     ApplicationViewSet,
     AppSettingsViewSet,
+    BackupViewSet,
     KIProviderViewSet,
     MarkdownCorpusViewSet,
     PromptRunViewSet,
@@ -26,6 +27,7 @@ router.register(r"ki-providers", KIProviderViewSet, basename="kiprovider")
 router.register(r"prompt-runs", PromptRunViewSet, basename="promptrun")
 router.register(r"settings", AppSettingsViewSet, basename="appsettings")
 router.register(r"markdown-corpora", MarkdownCorpusViewSet, basename="markdowncorpus")
+router.register(r"backups", BackupViewSet, basename="backup")
 
 urlpatterns = [
     path("", include(router.urls)),

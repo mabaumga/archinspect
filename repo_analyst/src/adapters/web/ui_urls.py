@@ -15,6 +15,7 @@ urlpatterns = [
     path("repositories/<int:pk>/assign/", views.repository_assign_application, name="repository-assign"),
     path("repositories/<int:pk>/toggle-active/", views.repository_toggle_active, name="repository-toggle-active"),
     path("repositories/<int:pk>/clone/", views.repository_clone, name="repository-clone"),
+    path("repositories/<int:pk>/generate-corpus/", views.repository_generate_corpus, name="repository-generate-corpus"),
     path("repositories/<int:pk>/execute-prompt/", views.repository_execute_prompt, name="repository-execute-prompt"),
 
     # Applications

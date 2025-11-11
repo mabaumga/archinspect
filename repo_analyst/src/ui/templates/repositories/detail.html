@@ -21,6 +21,13 @@
             <i class="bi bi-{% if repository.local_path %}arrow-repeat{% else %}cloud-download{% endif %}"></i>
             {% if repository.local_path %}Aktualisieren{% else %}Klonen{% endif %}
         </a>
+        {% if repository.local_path %}
+        <a href="{% url 'repository-generate-corpus' repository.pk %}"
+           class="btn btn-info"
+           title="Corpus-Datei für KI-Upload erzeugen">
+            <i class="bi bi-file-earmark-text"></i> Corpus erzeugen
+        </a>
+        {% endif %}
         <a href="{% url 'repository-toggle-active' repository.pk %}" class="btn btn-{% if repository.is_active %}warning{% else %}success{% endif %}">
             {% if repository.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}
         </a>

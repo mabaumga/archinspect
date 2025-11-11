@@ -159,7 +159,8 @@ class MarkdownCorpusService:
         repository_id: int,
         include_patterns: List[str],
         exclude_paths: List[str],
-        max_bytes: int
+        max_bytes: int,
+        output_dir: Optional[Path] = None
     ) -> MarkdownCorpusModel:
         """
         Generate markdown corpus for a repository.
@@ -169,6 +170,7 @@ class MarkdownCorpusService:
             include_patterns: File patterns to include
             exclude_paths: Directories to exclude
             max_bytes: Maximum size in bytes
+            output_dir: Output directory for corpus file (optional)
 
         Returns:
             MarkdownCorpus instance
@@ -178,24 +180,17 @@ class MarkdownCorpusService:
 
         # Ensure repository is mirrored locally
         if not repo.local_path or not Path(repo.local_path).exists():
-            logger.info(f"Mirroring repository {repo.name}")
-            from django.conf import settings
-            target_dir = settings.REPO_DOWNLOAD_ROOT
-            local_path = self.mirror.mirror_repository(
-                repo.name,
-                repo.url,
-                repo.namespace_path,
-                target_dir
+            raise ValueError(
+                f"Repository {repo.name} must be cloned first before generating corpus"
             )
-            repo.local_path = str(local_path)
-            repo.save()
 
         # Build markdown corpus
         corpus_path = self.markdown_builder.build_corpus(
             Path(repo.local_path),
             include_patterns,
             exclude_paths,
-            max_bytes
+            max_bytes,
+            output_dir
         )
 
         # Save corpus metadata

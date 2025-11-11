@@ -260,6 +260,73 @@ def repository_execute_prompt(request, pk):
     return redirect("repository-detail", pk=pk)
 
 
+def repository_generate_corpus(request, pk):
+    """Generate corpus file for repository (KI-upload format)."""
+    from pathlib import Path
+    from django.conf import settings
+    from adapters.git_platform.markdown_builder import MarkdownCorpusBuilder
+    from application.services import MarkdownCorpusService
+
+    repository = get_object_or_404(Repository, pk=pk)
+
+    # Check if repository is cloned
+    if not repository.local_path or not Path(repository.local_path).exists():
+        messages.error(
+            request,
+            f"Repository '{repository.name}' muss zuerst geklont werden, bevor ein Corpus erzeugt werden kann."
+        )
+        return redirect("repository-detail", pk=pk)
+
+    try:
+        # Get app settings
+        app_settings = AppSettings.objects.first()
+        if not app_settings:
+            messages.error(request, "App-Einstellungen nicht gefunden.")
+            return redirect("repository-detail", pk=pk)
+
+        # Create service
+        markdown_builder = MarkdownCorpusBuilder()
+        # Note: mirror parameter not needed since we check for cloned repo above
+        service = MarkdownCorpusService(markdown_builder, None)
+
+        # Generate corpus in CORPUS_OUTPUT_DIR
+        corpus = service.generate_corpus(
+            repository_id=repository.id,
+            include_patterns=settings.INCLUDE_PATTERNS,
+            exclude_paths=settings.EXCLUDE_PATHS,
+            max_bytes=settings.MAX_CONCAT_BYTES,
+            output_dir=settings.CORPUS_OUTPUT_DIR
+        )
+
+        # Get file info for user feedback
+        corpus_path = Path(corpus.file_path)
+        file_size_mb = round(corpus.file_size_bytes / (1024 * 1024), 2)
+
+        messages.success(
+            request,
+            f"Corpus erfolgreich erzeugt: {corpus_path.name} ({file_size_mb} MB). "
+            f"Datei gespeichert in: {corpus_path}"
+        )
+        logger.info(
+            f"Generated corpus for repository {repository.name}",
+            extra={
+                "repository_id": repository.id,
+                "corpus_path": str(corpus_path),
+                "file_size_bytes": corpus.file_size_bytes,
+                "is_complete": corpus.is_complete
+            }
+        )
+
+    except ValueError as e:
+        logger.error(f"Validation error generating corpus: {e}")
+        messages.error(request, f"Fehler: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error generating corpus: {e}", exc_info=True)
+        messages.error(request, f"Fehler beim Erzeugen des Corpus: {e}")
+
+    return redirect("repository-detail", pk=pk)
+
+
 # Application Views
 class ApplicationListView(ListView):
     """List all applications."""

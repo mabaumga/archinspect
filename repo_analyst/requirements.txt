@@ -28,4 +28,13 @@ factory-boy>=3.3,<4.0
 # Code Quality
 ruff>=0.1,<0.2
 black>=23.12,<24.0
+mypy>=1.7,<2.0
+
+# Type Stubs
+types-requests>=2.31,<3.0
+django-stubs>=4.2,<5.0
+djangorestframework-stubs>=3.14,<4.0
+
+# Pre-commit
+pre-commit>=3.5,<4.0
 

@@ -28,6 +28,10 @@ pytest-cov = "^4.1"
 factory-boy = "^3.3"
 ruff = "^0.1"
 black = "^23.12"
+mypy = "^1.7"
+django-stubs = "^4.2"
+djangorestframework-stubs = "^3.14"
+types-requests = "^2.31"
 
 [build-system]
 requires = ["poetry-core"]
@@ -50,3 +54,32 @@ ignore = ["E501"]
 [tool.black]
 line-length = 120
 target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Start lenient, increase gradually
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+strict_equality = true
+
+# Django plugin
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+
+[[tool.mypy.overrides]]
+module = [
+    "gitlab.*",
+    "git.*",
+    "pythonjsonlogger.*",
+]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings"
+
+[tool.bandit]
+exclude_dirs = ["tests", "migrations"]
+skips = ["B101", "B601"]

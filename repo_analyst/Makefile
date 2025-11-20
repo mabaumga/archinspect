@@ -1,4 +1,4 @@
- .PHONY: help setup venv install migrate makemigrations createsuperuser run test test-bdd test-unit test-integration lint format coverage coverage-domain check-dod seed import-repos generate-md collectstatic clean
+ .PHONY: help setup venv install migrate makemigrations createsuperuser run test test-bdd test-unit test-integration lint format typecheck coverage coverage-domain check-dod seed import-repos generate-md collectstatic clean
 
 PYTHON := python3
 VENV := .venv
@@ -27,6 +27,7 @@ help:
 	@echo "  coverage-domain    - Check domain coverage (minimum 80%)"
 	@echo "  check-dod          - Run Definition of Done checks (all tests + coverage)"
 	@echo "  lint               - Run linter (ruff)"
+	@echo "  typecheck          - Run type checker (mypy)"
 	@echo "  format             - Format code (black + ruff)"
 	@echo ""
 	@echo "Data Management:"
@@ -106,23 +107,27 @@ check-dod:
 	@$(VENV_BIN)/ruff check src/ || (echo "✗ Linting failed" && exit 1)
 	@echo "✓ Linting passed"
 	@echo ""
-	@echo "2. Running all unit tests..."
+	@echo "2. Running type checker..."
+	@$(VENV_BIN)/mypy src/ || (echo "⚠ Type checking issues found (non-blocking)" && true)
+	@echo "✓ Type checking completed"
+	@echo ""
+	@echo "3. Running all unit tests..."
 	@$(VENV_BIN)/pytest src/tests/unit/ -v --ds=config.settings || (echo "✗ Unit tests failed" && exit 1)
 	@echo "✓ Unit tests passed"
 	@echo ""
-	@echo "3. Running integration tests..."
+	@echo "4. Running integration tests..."
 	@$(VENV_BIN)/pytest src/tests/integration/ -v --ds=config.settings || (echo "✗ Integration tests failed" && exit 1)
 	@echo "✓ Integration tests passed"
 	@echo ""
-	@echo "4. Running BDD tests..."
+	@echo "5. Running BDD tests..."
 	@$(VENV_BIN)/pytest src/tests/bdd/ -v --ds=config.settings || (echo "✗ BDD tests failed" && exit 1)
 	@echo "✓ BDD tests passed"
 	@echo ""
-	@echo "5. Checking domain coverage (minimum 80%)..."
+	@echo "6. Checking domain coverage (minimum 80%)..."
 	@$(VENV_BIN)/pytest --cov=src/domain --cov-report=term --cov-fail-under=80 -q || (echo "✗ Domain coverage below 80%" && exit 1)
 	@echo "✓ Domain coverage >= 80%"
 	@echo ""
-	@echo "6. Checking overall coverage..."
+	@echo "7. Checking overall coverage..."
 	@$(VENV_BIN)/pytest --cov=src --cov-report=html --cov-report=term-missing -q || echo "⚠ Some code not covered"
 	@echo ""
 	@echo "═══════════════════════════════════════════════════════════"
@@ -135,6 +140,10 @@ check-dod:
 lint:
 	@echo "Running linter..."
 	@$(VENV_BIN)/ruff check src/
+
+typecheck:
+	@echo "Running type checker..."
+	@$(VENV_BIN)/mypy src/
 
 format:
 	@echo "Formatting code..."
